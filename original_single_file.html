@@ -1,0 +1,4728 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fran & the Fernwood Frontier — Cozy Browser Build</title>
+  <style>
+    :root{
+      --ink:#2b2a26;
+      --paper:#f7f1e3;
+      --paper2:#f3ead6;
+      --wood:#6b4f2a;
+      --wood2:#8a6a3a;
+      --accent:#7aa36e; /* sage */
+      --accent2:#d88aa5; /* dusty rose */
+      --shadow: rgba(0,0,0,.18);
+      --ui-gap: 10px;
+    }
+
+    html,body{ height:100%; margin:0; background: radial-gradient(circle at 20% 10%, #fff7e8 0%, #f1ecd9 35%, #e7e0c9 100%); color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji"; }
+    *{ box-sizing:border-box; }
+
+    /* Game container */
+    #wrap{
+      height:100%;
+      width:100%;
+      display:flex;
+      align-items:stretch;
+      justify-content:stretch;
+      padding:0;
+    }
+    #gameShell{
+      position:relative;
+      width:100vw;
+      height:100vh;
+      border-radius:0;
+      overflow:hidden;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.35)),
+        repeating-linear-gradient(45deg, rgba(0,0,0,.025), rgba(0,0,0,.025) 6px, rgba(255,255,255,.02) 6px, rgba(255,255,255,.02) 12px);
+      box-shadow: 0 18px 45px var(--shadow);
+      border: 6px solid rgba(107,79,42,.45);
+      overflow:hidden;
+    }
+
+    canvas#game{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      display:block;
+      image-rendering: pixelated;
+      background:#000;
+    }
+
+    /* HUD */
+    #hud{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+    }
+
+    .panel{
+      pointer-events:auto;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(255,255,255,.65), rgba(255,255,255,.25)),
+        linear-gradient(180deg, var(--paper), var(--paper2));
+      border: 3px solid rgba(107,79,42,.55);
+      border-radius:14px;
+      box-shadow: 0 10px 20px rgba(0,0,0,.12);
+    }
+
+    .panel.woodEdge{
+      border-image: none;
+      outline: 2px solid rgba(255,255,255,.35);
+      outline-offset:-8px;
+    }
+
+    #topbar{
+      position:absolute;
+      left:var(--ui-gap);
+      right:var(--ui-gap);
+      top:var(--ui-gap);
+      display:flex;
+      gap:10px;
+      align-items:stretch;
+      justify-content:space-between;
+      pointer-events:none;
+    }
+
+    #status, #dayinfo, #biomeinfo{
+      pointer-events:auto;
+      padding:10px 12px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      min-height:54px;
+    }
+    #status{ flex: 1.15; }
+    #dayinfo{ flex: 1; justify-content:center; text-align:center; }
+    #biomeinfo{ flex: .9; justify-content:flex-end; text-align:right; }
+
+    .statRow{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+      font-size:14px;
+      line-height:1.15;
+    }
+    .statChip{
+      display:flex; align-items:center; gap:8px;
+      padding:6px 10px;
+      background: rgba(255,255,255,.55);
+      border: 2px solid rgba(107,79,42,.25);
+      border-radius:999px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+    }
+    .icon{
+      width:18px; height:18px; display:inline-grid; place-items:center;
+      font-size:16px;
+      filter: drop-shadow(0 1px 0 rgba(255,255,255,.6));
+    }
+
+    /* XP bar */
+    #xpWrap{
+      position:absolute;
+      left:var(--ui-gap);
+      right:var(--ui-gap);
+      top:78px;
+      display:flex;
+      justify-content:center;
+      pointer-events:none;
+    }
+    #xpbar{
+      pointer-events:auto;
+      width:min(620px, calc(100% - 16px));
+      padding:8px 10px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .bar{
+      flex:1;
+      height:10px;
+      background: rgba(107,79,42,.18);
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(107,79,42,.28);
+    }
+    .bar > i{
+      display:block;
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(122,163,110,.95), rgba(216,138,165,.95));
+      border-radius:999px;
+    }
+    #xpText{ font-size:13px; opacity:.92; white-space:nowrap; }
+
+    /* Hotbar */
+    #hotbar{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:var(--ui-gap);
+      display:flex;
+      gap:8px;
+      padding:8px;
+      pointer-events:none;
+    }
+    .slot{
+      pointer-events:auto;
+      width:46px; height:46px;
+      border-radius:12px;
+      border: 3px solid rgba(107,79,42,.55);
+      background: rgba(255,255,255,.55);
+      display:grid;
+      place-items:center;
+      position:relative;
+      box-shadow: 0 6px 12px rgba(0,0,0,.12);
+      transition: transform .08s ease;
+    }
+    .slot:hover{ transform: translateY(-1px); }
+    .slot.active{
+      outline: 3px solid rgba(122,163,110,.85);
+      outline-offset: 2px;
+      background: rgba(255,255,255,.72);
+    }
+
+    .slot.locked{
+      opacity:.45;
+      filter: saturate(.45);
+    }
+    .slot small{
+      position:absolute;
+      left:6px; top:4px;
+      font-size:11px;
+      opacity:.8;
+    }
+    .slot span{
+      font-size:18px;
+      filter: drop-shadow(0 1px 0 rgba(255,255,255,.65));
+    }
+
+    /* Hint + Toast */
+    #hint{
+      position:absolute;
+      left:var(--ui-gap);
+      bottom:var(--ui-gap);
+      padding:10px 12px;
+      max-width:min(420px, 55vw);
+      font-size:13px;
+      line-height:1.25;
+      pointer-events:none;
+      opacity:.95;
+    }
+
+    .minimalHUD #topbar,
+    .minimalHUD #hint{ display:none !important; }
+
+    #toasts{
+      position:absolute;
+      right:var(--ui-gap);
+      bottom:calc(var(--ui-gap) + 54px);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      align-items:flex-end;
+      pointer-events:none;
+    }
+    .toast{
+      pointer-events:none;
+      padding:10px 12px;
+      min-width: 220px;
+      max-width: 360px;
+      font-size:13px;
+      line-height:1.25;
+      border-radius:14px;
+      background: rgba(255,255,255,.78);
+      border: 2px solid rgba(107,79,42,.3);
+      box-shadow: 0 10px 20px rgba(0,0,0,.12);
+      transform: translateY(0);
+      animation: pop .18s ease-out;
+    }
+    @keyframes pop{
+      from{ transform: translateY(6px); opacity:.0; }
+      to{ transform: translateY(0); opacity:1; }
+    }
+
+    /* Modals */
+    .modal{
+      position:absolute;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background: rgba(30, 25, 18, .35);
+      backdrop-filter: blur(2px);
+      pointer-events:auto;
+    }
+    .modal.show{ display:flex; }
+
+    .modalCard{
+      width:min(860px, 92vw);
+      max-height:min(86vh, 720px);
+      overflow:auto;
+      padding:16px;
+      border-radius:18px;
+      border: 4px solid rgba(107,79,42,.55);
+      background:
+        radial-gradient(circle at 25% 18%, rgba(255,255,255,.65), rgba(255,255,255,.28)),
+        linear-gradient(180deg, var(--paper), var(--paper2));
+      box-shadow: 0 18px 50px rgba(0,0,0,.25);
+    }
+
+    .modalHeader{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      margin-bottom:10px;
+    }
+    .modalHeader h2{
+      margin:0;
+      font-size:20px;
+      letter-spacing:.2px;
+    }
+    .modalHeader p{
+      margin:2px 0 0 0;
+      font-size:13px;
+      opacity:.85;
+      max-width: 60ch;
+    }
+    .closeBtn{
+      border: 2px solid rgba(107,79,42,.45);
+      border-radius:12px;
+      padding:8px 10px;
+      background: rgba(255,255,255,.65);
+      cursor:pointer;
+      font-weight:600;
+    }
+    .closeBtn:hover{ background: rgba(255,255,255,.9); }
+
+    .grid2{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:14px;
+    }
+    @media (max-width: 840px){
+      .grid2{ grid-template-columns: 1fr; }
+    }
+
+    .list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      background: rgba(255,255,255,.55);
+      border: 2px solid rgba(107,79,42,.22);
+    }
+    .row b{ font-size:14px; }
+    .row small{ opacity:.85; }
+
+    .btn{
+      border: 2px solid rgba(107,79,42,.45);
+      border-radius:12px;
+      padding:8px 10px;
+      background: linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.6));
+      cursor:pointer;
+      font-weight:700;
+      font-size:13px;
+    }
+    .btn:hover{ filter: brightness(1.02); transform: translateY(-1px); }
+    .btn:active{ transform: translateY(0); }
+    .btn:disabled{ opacity:.45; cursor:not-allowed; transform:none; }
+
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid rgba(107,79,42,.25);
+      background: rgba(255,255,255,.55);
+      font-size:12px;
+      opacity:.92;
+      white-space:nowrap;
+    }
+
+    .kbd{
+      display:inline-grid;
+      place-items:center;
+      min-width: 20px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      border: 1px solid rgba(107,79,42,.4);
+      background: rgba(255,255,255,.6);
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    /* Map canvas */
+    #mapCanvas{
+      width:100%;
+      height:auto;
+      aspect-ratio: 16 / 10;
+      border-radius:14px;
+      border: 2px solid rgba(107,79,42,.25);
+      background: rgba(255,255,255,.55);
+      image-rendering: pixelated;
+    }
+
+    /* Footer help */
+    #helpStrip{
+      position:absolute;
+      right:var(--ui-gap);
+      top:calc(var(--ui-gap) + 84px);
+      padding:10px 12px;
+      max-width:min(360px, 42vw);
+      font-size:12.5px;
+      line-height:1.25;
+      opacity:.92;
+      pointer-events:none;
+    }
+
+    a.link{ color: #2c5a3a; text-decoration:none; border-bottom: 1px dashed rgba(44,90,58,.5); }
+    a.link:hover{ border-bottom-style: solid; }
+
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <div id="gameShell">
+      <canvas id="game" width="960" height="544"></canvas>
+
+      <div id="hud">
+        <div id="topbar">
+          <div id="status" class="panel woodEdge">
+            <div class="statRow" id="statusRow">
+              <!-- filled by JS -->
+            </div>
+          </div>
+
+          <div id="dayinfo" class="panel woodEdge">
+            <div>
+              <div style="font-weight:800;" id="dayLine">Day 1 • Spring • 07:00</div>
+              <div style="font-size:13px; opacity:.86;" id="weatherLine">Gentle morning • Clear skies</div>
+            </div>
+          </div>
+
+          <div id="biomeinfo" class="panel woodEdge">
+            <div>
+              <div style="font-weight:800;" id="biomeLine">Whispering Forest</div>
+              <div style="font-size:13px; opacity:.86;" id="hintLine">Explore • Gather • Grow</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="xpWrap">
+          <div id="xpbar" class="panel woodEdge">
+            <div class="bar"><i id="xpFill"></i></div>
+            <div id="xpText">Lv 1 • 0 / 100</div>
+          </div>
+        </div>
+
+        <div id="helpStrip" class="panel woodEdge">
+          <div style="font-weight:800; margin-bottom:6px;">Controls</div>
+          <div>
+            Move <span class="kbd">WASD</span>/<span class="kbd">Arrows</span> · Run <span class="kbd">Shift</span> · Interact <span class="kbd">E</span><br/>
+            Tools <span class="kbd">1</span>-<span class="kbd">5</span> · Inventory <span class="kbd">Tab</span> · Craft <span class="kbd">C</span> · Skills <span class="kbd">K</span><br/>
+            Journal <span class="kbd">J</span> · Map <span class="kbd">M</span> · Zoom <span class="kbd">[</span>/<span class="kbd">]</span> · Sleep near cottage <span class="kbd">Space</span>
+          </div>
+        </div>
+
+        <div id="hotbar" class="panel woodEdge">
+          <!-- slots filled by JS -->
+        </div>
+
+        <div id="hint" class="panel woodEdge">
+          <div id="hintText"><b>Welcome, Fran!</b> Walk around and press <span class="kbd">E</span> to forage, chop, mine, plant, and interact. Try planting seeds near your cottage.</div>
+        </div>
+
+        <div id="toasts"></div>
+
+        <!-- Modals -->
+        <div id="modalInventory" class="modal">
+          <div class="modalCard">
+            <div class="modalHeader">
+              <div>
+                <h2>Satchel Inventory</h2>
+                <p>Click seeds to set your active seed. Click food to eat. Your cottage-core life is built from little daily choices.</p>
+              </div>
+              <button class="closeBtn" data-close="modalInventory">Close</button>
+            </div>
+
+            <div class="grid2">
+              <div class="panel" style="padding:12px;">
+                <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                  <div style="font-weight:800;">Items</div>
+                  <div class="pill" id="moneyPill">🪙 0 coins</div>
+                </div>
+                <div id="invList" class="list"></div>
+              </div>
+
+              <div class="panel" style="padding:12px;">
+                <div style="font-weight:800; margin-bottom:10px;">Quick Info</div>
+                <div id="invInfo" style="font-size:13px; opacity:.9; line-height:1.35;">
+                  Select an item to see details.
+                </div>
+                <hr style="border:none; border-top:1px solid rgba(107,79,42,.25); margin:12px 0;">
+                <div style="font-weight:800; margin-bottom:8px;">Active Seed</div>
+                <div id="activeSeedLine" class="pill">🌱 None</div>
+                <div style="margin-top:10px; font-size:12.5px; opacity:.85;">
+                  Tip: Equip the <b>Hoe</b> (<span class="kbd">3</span>) and press <span class="kbd">E</span> on grass to till. Then press <span class="kbd">E</span> again to plant your active seed. Water with <span class="kbd">2</span>.
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+              <button class="btn" id="btnSave">Save</button>
+              <button class="btn" id="btnExport">Export Save</button>
+              <label class="btn" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+                Import Save <input id="fileImport" type="file" accept=".json" style="display:none;">
+              </label>
+              <button class="btn" id="btnNew">New World</button>
+              <span style="font-size:12.5px; opacity:.85; align-self:center;">(Saving uses localStorage; export/import always works.)</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="modalCraft" class="modal">
+          <div class="modalCard">
+            <div class="modalHeader">
+              <div>
+                <h2>Recipe Journal</h2>
+                <p>Handmade crafts, warm meals, gentle upgrades. Crafting and cooking give skill XP and cozy buffs.</p>
+              </div>
+              <button class="closeBtn" data-close="modalCraft">Close</button>
+            </div>
+            <div id="craftList" class="list"></div>
+          </div>
+        </div>
+
+        <div id="modalSkills" class="modal">
+          <div class="modalCard">
+            <div class="modalHeader">
+              <div>
+                <h2>Fran’s Skills & Stats</h2>
+                <p>Level up through calm routines. Spend stat points to shape how Fran explores, gathers, and thrives.</p>
+              </div>
+              <button class="closeBtn" data-close="modalSkills">Close</button>
+            </div>
+
+            <div class="grid2">
+              <div class="panel" style="padding:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                  <div>
+                    <div style="font-weight:900; font-size:16px;" id="lvlLine">Overall Level 1</div>
+                    <div style="font-size:13px; opacity:.85;" id="pointsLine">Stat Points: 0</div>
+                  </div>
+                  <div class="pill" id="perkPill">🌿 Perks: none yet</div>
+                </div>
+                <hr style="border:none; border-top:1px solid rgba(107,79,42,.25); margin:12px 0;">
+                <div id="statList" class="list"></div>
+              </div>
+
+              <div class="panel" style="padding:12px;">
+                <div style="font-weight:900; margin-bottom:10px;">Skill Lines</div>
+                <div id="skillList" class="list"></div>
+                <hr style="border:none; border-top:1px solid rgba(107,79,42,.25); margin:12px 0;">
+                <div style="font-size:12.5px; opacity:.88; line-height:1.35;">
+                  <b>Perk milestones:</b> At skill level 5 you unlock a cozy perk (Green Thumb, Berry Keen, Soft Strike, Trailblazer, Hearty Meals).<br/>
+                  These perks are gentle boosts that harmonize the whole experience: home → explore → gather → grow.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="modalJournal" class="modal">
+          <div class="modalCard">
+            <div class="modalHeader">
+              <div>
+                <h2>Field Journal</h2>
+                <p>Fran keeps little notes—biomes visited, curiosities found, and a soft record of your frontier life.</p>
+              </div>
+              <button class="closeBtn" data-close="modalJournal">Close</button>
+            </div>
+            <div class="grid2">
+              <div class="panel" style="padding:12px;">
+                <div style="font-weight:900; margin-bottom:10px;">Discovered Biomes</div>
+                <div id="bioList" class="list"></div>
+              </div>
+              <div class="panel" style="padding:12px;">
+                <div style="font-weight:900; margin-bottom:10px;">Collected Resources</div>
+                <div id="resList" class="list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="modalMap" class="modal">
+          <div class="modalCard">
+            <div class="modalHeader">
+              <div>
+                <h2>Parchment Map</h2>
+                <p>Fog-of-war clears as Fran explores. Discovered chunks color themselves by biome. Tiny archways become fast-travel anchors.</p>
+              </div>
+              <button class="closeBtn" data-close="modalMap">Close</button>
+            </div>
+            <canvas id="mapCanvas" width="800" height="500"></canvas>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; align-items:center;">
+              <button class="btn" id="btnFastTravel">Fast Travel (to nearest archway)</button>
+              <span style="font-size:12.5px; opacity:.85;">Costs a little stamina and advances time.</span>
+            </div>
+          </div>
+        </div>
+
+
+        <div id="modalPause" class="modal">
+          <div class="modalCard">
+            <div class="modalHeader">
+              <div>
+                <h2>Pause Menu</h2>
+                <p>Cozy controls, comfort options, and a quiet moment for tea. Press <span class="kbd">P</span> or <span class="kbd">Esc</span> to resume.</p>
+              </div>
+              <button class="closeBtn" data-close="modalPause">Resume</button>
+            </div>
+
+            <div class="grid2">
+              <div class="panel" style="padding:12px;">
+                <div style="font-weight:900; margin-bottom:8px;">Controls</div>
+                <div style="font-size:13px; line-height:1.6;">
+                  <div><span class="kbd">WASD</span> / <span class="kbd">Arrow Keys</span> — Move</div>
+                  <div><span class="kbd">Shift</span> — Run</div>
+                  <div><span class="kbd">E</span> — Interact / Use tool</div>
+                  <div><span class="kbd">Click</span> — Walk & auto-interact</div>
+                  <div><span class="kbd">1</span>–<span class="kbd">5</span> — Select tool</div>
+                  <div><span class="kbd">Tab</span> — Inventory</div>
+                  <div><span class="kbd">C</span> — Crafting</div>
+                  <div><span class="kbd">K</span> — Skills & Stats</div>
+                  <div><span class="kbd">J</span> — Field Journal</div>
+                  <div><span class="kbd">M</span> — Map</div>
+                  <div><span class="kbd">Space</span> — Sleep (near cottage door)</div>
+                  <div><span class="kbd">[</span> / <span class="kbd">]</span> — Zoom</div>
+                </div>
+              </div>
+
+              <div class="panel" style="padding:12px;">
+                <div style="font-weight:900; margin-bottom:8px;">Options</div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                  <button class="btn" id="btnFullscreen">Toggle Fullscreen</button>
+                  <button class="btn" id="btnToggleHUD">Toggle Minimal HUD</button>
+                  <button class="btn" id="btnResetGame">Reset / New Game</button>
+                  <button class="btn" id="btnRestoreBackup">Load Previous Save</button>
+                </div>
+                <hr style="border:none; border-top:1px solid rgba(107,79,42,.25); margin:12px 0;">
+                <div style="font-size:13px; opacity:.9; line-height:1.5;">
+                  <div><b>Weather:</b> <span id="pauseWeatherLine">—</span></div>
+                  <div><b>Tip:</b> Rain gently auto-waters crops. Cloudy days feel soft and calm.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /hud -->
+    </div><!-- /gameShell -->
+  </div><!-- /wrap -->
+
+  <script>
+  // Fran & the Fernwood Frontier — Cozy Browser Build
+  // Single-file, offline-friendly HTML5 canvas game (no external libraries).
+  // Save this as index.html and open it in a browser.
+
+  (() => {
+    'use strict';
+
+    // -----------------------------
+    // Constants & helpers
+    // -----------------------------
+    const CANVAS_W = 960;
+    const CANVAS_H = 544;
+    const TILE = 16;
+    const CHUNK = 32;              // 32x32 tiles per chunk
+    const WORLD_CLEARING_R = 10;   // tiles: starter clearing radius around cottage
+    const DAY_LENGTH = 8 * 60;     // seconds per day (8 minutes)
+
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const lerp = (a,b,t) => a + (b-a) * t;
+    const smooth = t => t*t*(3-2*t);
+
+    function setZoomTarget(z){
+      const nz = clamp(Math.round(z), ZOOM_MIN, ZOOM_MAX);
+      if (nz !== zoomTarget){
+        zoomTarget = nz;
+        toast(`🔎 Zoom: ${zoomTarget}x`);
+      }
+    }
+
+    const fmtTime = (t01) => {
+      // 0..1 mapped to 6:00 -> 24:00
+      const minutes = Math.floor( (6*60) + t01 * (18*60) );
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      const hh = String(h).padStart(2,'0');
+      const mm = String(m).padStart(2,'0');
+      return hh + ':' + String(mm).padStart(2,'0');
+    };
+
+    const nowSeed = () => (Math.random() * 0x7fffffff) | 0;
+
+    // -----------------------------
+    // UI references
+    // -----------------------------
+    const el = (id) => document.getElementById(id);
+    const canvas = el('game');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    ctx.imageSmoothingEnabled = false;
+
+    // Fit the fixed internal canvas to the full-screen shell (cover, no distortion).
+    const shell = el('gameShell');
+    function fitCanvas(){
+      const r = shell.getBoundingClientRect();
+      const scale = Math.max(r.width / CANVAS_W, r.height / CANVAS_H);
+      canvas.style.width = (CANVAS_W * scale) + 'px';
+      canvas.style.height = (CANVAS_H * scale) + 'px';
+      canvas.style.left = '50%';
+      canvas.style.top = '50%';
+      canvas.style.transform = 'translate(-50%,-50%)';
+    }
+    window.addEventListener('resize', fitCanvas);
+    document.addEventListener('fullscreenchange', fitCanvas);
+
+    fitCanvas();
+
+    const statusRow = el('statusRow');
+    const dayLine = el('dayLine');
+    const weatherLine = el('weatherLine');
+    const biomeLine = el('biomeLine');
+    const hintLine = el('hintLine');
+    const hintText = el('hintText');
+    const xpFill = el('xpFill');
+    const xpText = el('xpText');
+    const hotbarEl = el('hotbar');
+    const toastsEl = el('toasts');
+
+    const modalInventory = el('modalInventory');
+    const modalCraft = el('modalCraft');
+    const modalSkills = el('modalSkills');
+    const modalJournal = el('modalJournal');
+    const modalMap = el('modalMap');
+    const modalPause = el('modalPause');
+    const pauseWeatherLine = el('pauseWeatherLine');
+    const btnFullscreen = el('btnFullscreen');
+    const btnToggleHUD = el('btnToggleHUD');
+    const btnResetGame = el('btnResetGame');
+    const btnRestoreBackup = el('btnRestoreBackup');
+
+    const invList = el('invList');
+    const invInfo = el('invInfo');
+    const activeSeedLine = el('activeSeedLine');
+    const moneyPill = el('moneyPill');
+
+    const craftList = el('craftList');
+
+    const lvlLine = el('lvlLine');
+    const pointsLine = el('pointsLine');
+    const perkPill = el('perkPill');
+    const statList = el('statList');
+    const skillList = el('skillList');
+
+    const bioList = el('bioList');
+    const resList = el('resList');
+
+    const mapCanvas = el('mapCanvas');
+    const mapCtx = mapCanvas.getContext('2d');
+    mapCtx.imageSmoothingEnabled = false;
+
+    // -----------------------------
+    // Deterministic RNG & noise
+    // -----------------------------
+    function hash32(n){
+      n |= 0;
+      n = (n ^ 61) ^ (n >>> 16);
+      n = n + (n << 3);
+      n = n ^ (n >>> 4);
+      n = n * 0x27d4eb2d;
+      n = n ^ (n >>> 15);
+      return n | 0;
+    }
+
+    function rand2(ix, iy, seed){
+      // 0..1 deterministic
+      const n = hash32(ix * 374761393 + iy * 668265263 + seed * 1442695041);
+      return ((n >>> 0) / 4294967296);
+    }
+
+    function noise2(x, y, seed){
+      // Value noise with bilinear interpolation
+      const x0 = Math.floor(x), y0 = Math.floor(y);
+      const xf = x - x0, yf = y - y0;
+      const r00 = rand2(x0, y0, seed);
+      const r10 = rand2(x0+1, y0, seed);
+      const r01 = rand2(x0, y0+1, seed);
+      const r11 = rand2(x0+1, y0+1, seed);
+      const u = smooth(xf), v = smooth(yf);
+      return lerp( lerp(r00, r10, u), lerp(r01, r11, u), v );
+    }
+
+    function fbm(x, y, seed){
+      // Fractal Brownian Motion (few octaves)
+      let amp = 0.5, freq = 1.0, sum = 0.0;
+      for(let i=0;i<4;i++){
+        sum += amp * noise2(x*freq, y*freq, seed + i*1013);
+        freq *= 2.0;
+        amp *= 0.5;
+      }
+      return sum; // ~0..1
+    }
+
+    // -----------------------------
+    // Biomes + ground types
+    // -----------------------------
+    const BIOMES = [
+      { id:'forest', name:'Whispering Forest',  key:0, ground:'#6f9f6b', accent:'#517b4d', hint:'Mossy shade • Mushrooms • Soft birdsong' },
+      { id:'meadow', name:'Golden Meadow',      key:1, ground:'#90b96a', accent:'#6d8f4f', hint:'Wildflowers • Bees • Warm breeze' },
+      { id:'lake',   name:'Crystal Lake',       key:2, ground:'#7aa9b6', accent:'#5c8794', hint:'Reeds • Fishing • Gentle ripples' },
+      { id:'stone',  name:'Stone Hollow',       key:3, ground:'#9aa0a4', accent:'#6f777b', hint:'Rocks • Ores • Quiet echoes' },
+      { id:'bramble',name:'Brambleridge Grove', key:4, ground:'#6c9b7b', accent:'#4c7c5f', hint:'Thornbush • Berries • Hidden shrines' },
+      { id:'moon',   name:'Moonmoss Glade',     key:5, ground:'#6c7aa8', accent:'#4f5c87', hint:'Glowcaps • Night blooms • Soft hum' },
+      { id:'frost',  name:'Frostwood',          key:6, ground:'#c9d7e6', accent:'#97aac0', hint:'Snow hush • Ice crystals • Cozy fires' },
+      { id:'honey',  name:'Honeyvale Orchard',  key:7, ground:'#b6a56a', accent:'#8f7f4f', hint:'Fruit trees • Beehives • Sweet air' },
+    ];
+    function hexToRgba(hex, a){
+      if (!hex) return `rgba(0,0,0,${a})`;
+      const s = String(hex).trim();
+      if (s.startsWith('rgba') || s.startsWith('rgb')){
+        const nums = s.match(/[\d.]+/g);
+        if (!nums || nums.length < 3) return s;
+        return `rgba(${nums[0]},${nums[1]},${nums[2]},${a})`;
+      }
+      let h = s.replace('#','');
+      if (h.length === 3) h = h.split('').map(c=>c+c).join('');
+      const n = parseInt(h, 16);
+      const r = (n >> 16) & 255;
+      const g = (n >> 8) & 255;
+      const b = (n) & 255;
+      return `rgba(${r},${g},${b},${a})`;
+    }
+
+    // Precompute cozy biome wash colors (avoids per-tile globalAlpha toggles during render)
+    for (const b of BIOMES){
+      b.wash = hexToRgba(b.ground, 0.08);
+    }
+
+
+    const GROUND = {
+      GRASS: 0,
+      WATER: 1,
+      STONE: 2,
+      SNOW: 3,
+      MOSS: 4,
+      THORN: 5,
+      ORCH: 6,
+      SHORE: 7
+    };
+
+    function biomeAt(tx, ty, seed){
+      // tx,ty in tile coords
+      const d = Math.hypot(tx, ty) / 340; // distance rings
+      const n = fbm(tx * 0.020, ty * 0.020, seed);
+      const n2= fbm(tx * 0.045, ty * 0.045, seed+999);
+
+      // Starter clearing: cozy meadow
+      if (Math.hypot(tx, ty) <= WORLD_CLEARING_R) return 1; // meadow
+
+      // Rare orchard pockets
+      const orchardChance = (n > 0.82 && n2 > 0.65);
+
+      if (d < 0.35){
+        if (orchardChance && d > 0.18) return 7; // honeyvale
+        if (n < 0.38) return 0; // forest
+        if (n < 0.72) return 1; // meadow
+        return 2;               // lake
+      } else if (d < 0.58){
+        if (orchardChance && d > 0.45) return 7;
+        if (n < 0.26) return 1;
+        if (n < 0.52) return 0;
+        if (n < 0.72) return 3; // stone
+        return 4;               // bramble
+      } else if (d < 0.78){
+        if (orchardChance) return 7;
+        if (n < 0.30) return 4;
+        if (n < 0.55) return 3;
+        return 5; // moonmoss
+      } else {
+        if (orchardChance && n > 0.9) return 7;
+        return 6; // frostwood
+      }
+    }
+
+    function groundAt(tx, ty, biomeKey, seed){
+      // per-tile water/shore variation
+      const w = fbm(tx * 0.060, ty * 0.060, seed+4242);
+      if (biomeKey === 2){ // lake
+        if (w < 0.46) return GROUND.WATER;
+        if (w < 0.52) return GROUND.SHORE;
+        return GROUND.GRASS;
+      }
+      if (biomeKey === 3){ // stone hollow
+        return (w < 0.12) ? GROUND.STONE : GROUND.STONE;
+      }
+      if (biomeKey === 6){ // frostwood
+        return (w < 0.18) ? GROUND.STONE : GROUND.SNOW;
+      }
+      if (biomeKey === 5){ // moon
+        return (w < 0.16) ? GROUND.MOSS : GROUND.MOSS;
+      }
+      if (biomeKey === 4){ // bramble
+        return (w < 0.2) ? GROUND.THORN : GROUND.GRASS;
+      }
+      if (biomeKey === 7){ // orchard
+        return (w < 0.18) ? GROUND.ORCH : GROUND.ORCH;
+      }
+      return GROUND.GRASS;
+    }
+
+    const SEASONS = ['Spring','Summer','Autumn','Winter'];
+
+    // -----------------------------
+    // Sprites (procedural pixel textures)
+    // -----------------------------
+    function makeTileSprite(base, accent){
+      const c = document.createElement('canvas');
+      c.width = TILE; c.height = TILE;
+      const g = c.getContext('2d');
+      g.imageSmoothingEnabled = false;
+
+      g.fillStyle = base;
+      g.fillRect(0,0,TILE,TILE);
+
+      // Soft dithering specks
+      for(let i=0;i<24;i++){
+        const x = (Math.random()*TILE)|0;
+        const y = (Math.random()*TILE)|0;
+        g.fillStyle = (Math.random()<0.55) ? 'rgba(255,255,255,.10)' : 'rgba(0,0,0,.07)';
+        g.fillRect(x,y,1,1);
+      }
+      for(let i=0;i<10;i++){
+        const x = (Math.random()*TILE)|0;
+        const y = (Math.random()*TILE)|0;
+        g.fillStyle = accent;
+        g.globalAlpha = 0.18;
+        g.fillRect(x,y,1,1);
+        g.globalAlpha = 1;
+      }
+      return c;
+    }
+
+    function makeSprite(drawFn, w=TILE, h=TILE){
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const g = c.getContext('2d');
+      g.imageSmoothingEnabled = false;
+      drawFn(g);
+      return c;
+    }
+
+    function px(g, x,y,w,h, col){ g.fillStyle = col; g.fillRect(x,y,w,h); }
+
+    function makeTreeSprite(leaf, leaf2, trunk){
+      return makeSprite(g=>{
+        // canopy
+        px(g,4,2,8,2, leaf2);
+        px(g,3,4,10,4, leaf);
+        px(g,4,8,8,3, leaf2);
+        // sparkle berries
+        px(g,6,6,1,1,'rgba(255,255,255,.55)');
+        px(g,9,7,1,1,'rgba(255,255,255,.35)');
+        // trunk
+        px(g,7,11,2,4, trunk);
+        px(g,6,14,4,2, trunk);
+      });
+    }
+
+    function makePineSprite(leaf, leaf2, trunk){
+      return makeSprite(g=>{
+        px(g,7,2,2,2, leaf2);
+        px(g,6,4,4,2, leaf);
+        px(g,5,6,6,2, leaf2);
+        px(g,4,8,8,2, leaf);
+        px(g,3,10,10,2, leaf2);
+        px(g,7,12,2,4, trunk);
+        px(g,6,15,4,1, trunk);
+      });
+    }
+
+    function makeRockSprite(col1, col2){
+      return makeSprite(g=>{
+        px(g,4,8,8,6,col1);
+        px(g,5,7,6,1,col1);
+        px(g,6,6,4,1,col1);
+        px(g,5,10,2,2,col2);
+        px(g,9,12,2,2,col2);
+        px(g,7,9,2,1,'rgba(255,255,255,.25)');
+      });
+    }
+
+    function makeOreSprite(rock1, rock2, ore){
+      return makeSprite(g=>{
+        px(g,4,8,8,6,rock1);
+        px(g,5,7,6,1,rock1);
+        px(g,6,6,4,1,rock1);
+        px(g,5,10,2,2,rock2);
+        px(g,9,12,2,2,rock2);
+        px(g,6,11,1,1,ore);
+        px(g,8,10,1,1,ore);
+        px(g,10,13,1,1,ore);
+      });
+    }
+
+    function makeBushSprite(col1, col2){
+      return makeSprite(g=>{
+        px(g,3,10,10,4,col1);
+        px(g,4,9,8,1,col1);
+        px(g,5,8,6,1,col1);
+        px(g,5,12,2,1,col2);
+        px(g,9,11,2,1,col2);
+      });
+    }
+
+    function makeFlowerSprite(petal, petal2, stem){
+      return makeSprite(g=>{
+        px(g,7,12,2,3,stem);
+        px(g,6,10,4,2,stem);
+        px(g,6,8,4,2,petal);
+        px(g,7,7,2,1,petal2);
+        px(g,6,9,1,1,'rgba(255,255,255,.35)');
+      });
+    }
+
+    function makeMushroomSprite(cap, cap2, stem){
+      return makeSprite(g=>{
+        px(g,6,12,4,3,stem);
+        px(g,5,11,6,1,stem);
+        px(g,4,8,8,3,cap);
+        px(g,5,7,6,1,cap2);
+        px(g,6,9,1,1,'rgba(255,255,255,.35)');
+        px(g,9,9,1,1,'rgba(255,255,255,.25)');
+      });
+    }
+
+    function makeGlowyMushroomSprite(cap, glow, stem){
+      return makeSprite(g=>{
+        px(g,6,12,4,3,stem);
+        px(g,5,11,6,1,stem);
+        px(g,4,8,8,3,cap);
+        px(g,5,7,6,1,glow);
+        px(g,6,9,1,1,'rgba(255,255,255,.55)');
+        px(g,9,9,1,1,'rgba(255,255,255,.40)');
+      });
+    }
+
+    function makeIceCrystalSprite(ice1, ice2){
+      return makeSprite(g=>{
+        px(g,7,3,2,10,ice1);
+        px(g,6,6,1,5,ice2);
+        px(g,9,6,1,5,ice2);
+        px(g,7,2,2,1,'rgba(255,255,255,.75)');
+        px(g,7,13,2,2,ice1);
+      });
+    }
+
+    function makeBeehiveSprite(honey, honey2, dark){
+      return makeSprite(g=>{
+        px(g,5,7,6,6,honey);
+        px(g,6,6,4,1,honey2);
+        px(g,6,9,4,1,honey2);
+        px(g,6,12,4,1,honey2);
+        px(g,7,10,2,2,dark);
+      });
+    }
+
+    function makeArchwaySprite(stone, stone2, moss){
+      return makeSprite(g=>{
+        px(g,3,7,10,8,stone);
+        px(g,4,8,8,6,stone2);
+        px(g,6,9,4,5,'rgba(0,0,0,.25)'); // hole
+        px(g,4,7,2,2,moss);
+        px(g,10,7,2,2,moss);
+      });
+    }
+
+    function makeCottageSprite(){
+      // 48x48
+      return makeSprite(g=>{
+        // roof
+        px(g,6,8,36,18,'#b46b5d');
+        px(g,8,10,32,14,'#c77a6b');
+        // chimney
+        px(g,34,4,6,10,'#9a7a6a');
+        px(g,35,5,4,8,'#ad8b7a');
+        // walls
+        px(g,10,24,28,18,'#e8ddc6');
+        px(g,12,26,24,14,'#f2ead6');
+        // door
+        px(g,22,32,8,10,'#7a5a3a');
+        px(g,23,33,6,8,'#8a6a3a');
+        px(g,28,37,1,1,'rgba(255,255,255,.45)');
+        // windows
+        px(g,14,30,6,6,'#86b7c6');
+        px(g,32,30,6,6,'#86b7c6');
+        px(g,15,31,4,4,'rgba(255,255,255,.45)');
+        px(g,33,31,4,4,'rgba(255,255,255,.45)');
+        // flower boxes
+        px(g,14,37,6,2,'#6b4f2a');
+        px(g,32,37,6,2,'#6b4f2a');
+        px(g,15,36,1,1,'#d88aa5');
+        px(g,17,36,1,1,'#d88aa5');
+        px(g,33,36,1,1,'#d88aa5');
+        px(g,35,36,1,1,'#d88aa5');
+      }, 48, 48);
+    }
+
+    function makeFranSprite(dir){
+      // 16x16 extra-cute chibi sprite (Fran). dir: 0=down,1=up,2=left,3=right
+      // Palette: warm hair, rosy cheeks, big eyes, cozy pinafore + apron, little bow.
+      const hair1 = '#5a3727';
+      const hair2 = '#724534';
+      const skin  = '#f3c9b5';
+      const eye   = '#2b2a26';
+      const eye2  = '#3a3a34';
+      const white = '#ffffff';
+      const dress = '#8fb9a6';   // sage
+      const apron = '#f3ead6';   // linen
+      const boots = '#6b4f2a';
+      const bow   = '#d88aa5';   // dusty rose
+      const blush = 'rgba(216,138,165,.75)';
+      return makeSprite(g=>{
+        // hair cap
+        px(g,4,2,8,4,hair1);
+        px(g,3,3,10,3,hair1);
+        // hair highlight
+        px(g,5,3,6,2,hair2);
+
+        // cute bow (top)
+        px(g,7,1,2,1,bow);
+        px(g,6,2,1,1,bow);
+        px(g,9,2,1,1,bow);
+
+        // face
+        px(g,5,5,6,4,skin);
+
+        // cheeks
+        px(g,5,7,1,1,blush);
+        px(g,10,7,1,1,blush);
+
+        // eyes (big & sparkly)
+        if(dir===0){ // down
+          px(g,6,6,2,2,eye);
+          px(g,9,6,2,2,eye);
+          px(g,6,6,1,1,eye2);
+          px(g,9,6,1,1,eye2);
+          px(g,7,6,1,1,white);
+          px(g,10,6,1,1,white);
+          // tiny smile
+          px(g,8,8,1,1,eye);
+        } else if(dir===1){ // up (eyes slightly higher)
+          px(g,6,5,2,2,eye);
+          px(g,9,5,2,2,eye);
+          px(g,7,5,1,1,white);
+          px(g,10,5,1,1,white);
+        } else if(dir===2){ // left
+          px(g,6,6,2,2,eye);
+          px(g,7,6,1,1,white);
+          px(g,7,8,1,1,eye);
+        } else { // right
+          px(g,9,6,2,2,eye);
+          px(g,10,6,1,1,white);
+          px(g,8,8,1,1,eye);
+        }
+
+        // hair sides
+        if(dir!==1){
+          px(g,3,5,2,4,hair1);
+          px(g,11,5,2,4,hair1);
+        } else {
+          // ponytail in back
+          px(g,11,3,2,5,hair1);
+          px(g,12,4,1,3,hair2);
+        }
+
+        // body: dress/pinafore
+        px(g,6,9,4,5,dress);
+        // apron front
+        px(g,7,10,2,3,apron);
+        px(g,6,12,4,2,apron);
+
+        // arms
+        if(dir===2){
+          px(g,4,10,1,3,skin);
+        } else if(dir===3){
+          px(g,11,10,1,3,skin);
+        } else {
+          px(g,4,10,1,3,skin);
+          px(g,11,10,1,3,skin);
+        }
+
+        // boots
+        px(g,6,14,2,2,boots);
+        px(g,8,14,2,2,boots);
+      });
+    }
+
+    const SPR = {
+      tiles: {},
+      ents: {},
+      crops: {},
+      fran: [makeFranSprite(0), makeFranSprite(1), makeFranSprite(2), makeFranSprite(3)],
+      cottage: makeCottageSprite()
+    };
+
+    function initSprites(){
+      // Ground tiles (we blend by biome; water etc are special)
+      SPR.tiles[GROUND.GRASS] = makeTileSprite('#87b978', '#6b8d5f');
+      SPR.tiles[GROUND.SHORE] = makeTileSprite('#9cc3b3', '#6e9988');
+      SPR.tiles[GROUND.WATER] = makeTileSprite('#5f9fb6', '#3f7f95');
+      SPR.tiles[GROUND.STONE] = makeTileSprite('#9aa0a4', '#6f777b');
+      SPR.tiles[GROUND.SNOW]  = makeTileSprite('#d6e2ee', '#a6bdd2');
+      SPR.tiles[GROUND.MOSS]  = makeTileSprite('#6f7fb6', '#4e5c8f');
+      SPR.tiles[GROUND.THORN] = makeTileSprite('#6a9270', '#4e6f54');
+      SPR.tiles[GROUND.ORCH]  = makeTileSprite('#bda96f', '#927f4e');
+
+      // Entities
+      SPR.ents.tree = makeTreeSprite('#5e8e58', '#7aa36e', '#6b4f2a');
+      SPR.ents.pine = makePineSprite('#5e8e58', '#7aa36e', '#6b4f2a');
+      SPR.ents.rock = makeRockSprite('#9aa0a4', '#6f777b');
+      SPR.ents.ore_copper = makeOreSprite('#9aa0a4', '#6f777b', '#c47a4b');
+      SPR.ents.ore_iron   = makeOreSprite('#9aa0a4', '#6f777b', '#c9c9c9');
+      SPR.ents.bush = makeBushSprite('#5e8e58', '#7aa36e');
+      SPR.ents.berry_bush = makeBushSprite('#4f7a52', '#d88aa5');
+      SPR.ents.flower = makeFlowerSprite('#d88aa5', '#f1b8c8', '#6d8f4f');
+      SPR.ents.mushroom = makeMushroomSprite('#c77a6b', '#e0a395', '#e8ddc6');
+      SPR.ents.glowcap = makeGlowyMushroomSprite('#5f9fb6', '#a7e6ff', '#e8ddc6');
+      SPR.ents.ice = makeIceCrystalSprite('#86b7c6', '#d6f2ff');
+      SPR.ents.beehive = makeBeehiveSprite('#e7c66a', '#f1dc9b', '#6b4f2a');
+      SPR.ents.archway = makeArchwaySprite('#9aa0a4','#6f777b','#7aa36e');
+      SPR.ents.shrine = makeArchwaySprite('#bda96f','#927f4e','#d88aa5');
+
+      // Crops (stages)
+      function cropStages(base, leaf){
+        const arr=[];
+        for(let s=0;s<4;s++){
+          arr.push(makeSprite(g=>{
+            // tilled dirt base
+            px(g,2,10,12,4,'#8a6a3a');
+            px(g,2,12,12,2,'#6b4f2a');
+            if(s===0){
+              px(g,8,9,1,1,leaf);
+            } else if(s===1){
+              px(g,7,8,2,2,leaf);
+            } else if(s===2){
+              px(g,6,7,4,3,leaf);
+              px(g,8,6,1,1,'rgba(255,255,255,.35)');
+            } else {
+              // mature with bulb
+              px(g,6,8,4,4,base);
+              px(g,6,7,4,2,leaf);
+              px(g,7,9,1,1,'rgba(255,255,255,.35)');
+            }
+          }));
+        }
+        return arr;
+      }
+      SPR.crops.turnip = cropStages('#f2ead6','#7aa36e');
+      SPR.crops.blueberry = cropStages('#5f6bb6','#7aa36e');
+      SPR.crops.pumpkin = cropStages('#c77a2b','#7aa36e');
+      SPR.crops.snowroot = cropStages('#d6e2ee','#86b7c6');
+    }
+    initSprites();
+
+    // -----------------------------
+    // Items, recipes, crops
+    // -----------------------------
+    const ITEMS = {
+      wood: { name:'Wood', icon:'🪵', desc:'Warm, sturdy, smells like sunshine and sap.' },
+      stone:{ name:'Stone', icon:'🪨', desc:'Good for crafting sturdy things.' },
+      fiber:{ name:'Fiber', icon:'🧵', desc:'Soft plant fiber—useful for cozy crafts.' },
+      flower:{ name:'Wildflowers', icon:'🌸', desc:'Soft-petal blooms for decor and wearable crafts.' },
+      herb: { name:'Herbs', icon:'🌿', desc:'Wild herbs for tea and gentle remedies.' },
+      berry:{ name:'Berries', icon:'🫐', desc:'Sweet for snacks, jams, and treats.' },
+      mushroom:{ name:'Mushroom', icon:'🍄', desc:'A little forest gift. Some glow at night.' },
+      glowcap:{ name:'Glowcap', icon:'✨', desc:'Moonmoss glade mushroom—faintly luminous.' },
+      copper: { name:'Copper Ore', icon:'🟠', desc:'A soft metal for early upgrades.' },
+      iron:   { name:'Iron Ore', icon:'⚪', desc:'Sturdy metal for stronger tools.' },
+      ice:    { name:'Ice Crystal', icon:'🧊', desc:'Cold and clear. Better near a fire.' },
+      honey:  { name:'Honeycomb', icon:'🍯', desc:'Golden sweetness from Honeyvale.' },
+      water:  { name:'Water', icon:'💧', desc:'For watering and tea. Refill at wells.' },
+
+      // Crops + foods
+      turnip: { name:'Turnip', icon:'🥕', desc:'A humble crop. Great for soups.' , food: {hunger:+18, stamina:+6} },
+      blueberry:{ name:'Blueberries', icon:'🫐', desc:'Summer sweetness.', food:{hunger:+12, stamina:+4} },
+      pumpkin:{ name:'Pumpkin', icon:'🎃', desc:'Autumn comfort food.', food:{hunger:+22, stamina:+8} },
+      snowroot:{ name:'Snowroot', icon:'🥔', desc:'A winter root with crisp bite.', food:{hunger:+16, stamina:+8} },
+
+      tea: { name:'Herbal Tea', icon:'🍵', desc:'A cozy sip that calms the body.', food:{hunger:+6, stamina:+20}, buff:{ id:'tea', name:'Tea Warmth', duration: 180, mods:{ staminaRegen:+0.6 } } },
+      jam: { name:'Berry Jam', icon:'🍯', desc:'A sweet boost for careful harvests.', food:{hunger:+10, stamina:+6}, buff:{ id:'jam', name:'Jam Focus', duration: 180, mods:{ harvestYield:+0.12 } } },
+      sandwich: { name:'Picnic Sandwich', icon:'🥪', desc:'Found at a picnic spot. Instant comfort.', food:{hunger:+28, stamina:+10} },
+
+      // Seeds
+      turnip_seed:{ name:'Turnip Seeds', icon:'🌱', desc:'Plant in Spring.', seedOf:'turnip' },
+      blueberry_seed:{ name:'Blueberry Seeds', icon:'🌿', desc:'Plant in Summer.', seedOf:'blueberry' },
+      pumpkin_seed:{ name:'Pumpkin Seeds', icon:'🌰', desc:'Plant in Autumn.', seedOf:'pumpkin' },
+      snowroot_seed:{ name:'Snowroot Seeds', icon:'❄️', desc:'Plant in Winter.', seedOf:'snowroot' },
+
+      // Wearables
+      flower_crown:{ name:'Flower Crown', icon:'🌸', desc:'A little luck woven into petals.', equip:{ slot:'head', mods:{ luck:+1 } } },
+
+      // Placeables
+      campfire:{ name:'Campfire', icon:'🔥', desc:'A warm little circle of comfort.', placeable:true }
+    };
+
+    const CROPS = {
+      turnip:    { name:'Turnip', seasons:[0], stages:4, daysPerStage:1, harvest:'turnip', seed:'turnip_seed', xp: {gardening: 10}, sell: 6 },
+      blueberry: { name:'Blueberry', seasons:[1], stages:4, daysPerStage:1, harvest:'blueberry', seed:'blueberry_seed', xp:{gardening: 12}, sell: 8 },
+      pumpkin:   { name:'Pumpkin', seasons:[2], stages:4, daysPerStage:2, harvest:'pumpkin', seed:'pumpkin_seed', xp:{gardening: 14}, sell: 12 },
+      snowroot:  { name:'Snowroot', seasons:[3], stages:4, daysPerStage:1, harvest:'snowroot', seed:'snowroot_seed', xp:{gardening: 12}, sell: 9 },
+    };
+
+    const RECIPES = [
+      { id:'tea', name:'Brew Herbal Tea', icon:'🍵', kind:'cook',
+        req:{ herb:2, water:1 }, out:{ tea:1 },
+        xp:{ cooking: 14 }, note:'Stamina regen buff. Cottage-core classic.' },
+
+      { id:'jam', name:'Make Berry Jam', icon:'🍯', kind:'cook',
+        req:{ berry:3 }, out:{ jam:1 },
+        xp:{ cooking: 14 }, note:'Harvest yield buff for gentle min-maxing.' },
+
+      { id:'flower_crown', name:'Weave Flower Crown', icon:'🌸', kind:'craft',
+        req:{ flower:5 }, out:{ flower_crown:1 },
+        xp:{ crafting: 12 }, note:'Equip for a small luck boost.' },
+
+      { id:'campfire', name:'Build Campfire', icon:'🔥', kind:'craft',
+        req:{ wood:10, stone:5 }, out:{ campfire:1 },
+        xp:{ crafting: 16 }, note:'Place it down for warmth and cozy vibes.' },
+
+
+      { id:'tool_hatchet', name:'Craft Hatchet', icon:'🪓', kind:'craft',
+        req:{ wood:5, stone:2 }, out:{}, xp:{ crafting: 14 },
+        note:'Unlocks chopping trees for wood.',
+        available:(S)=> !S.player.tools?.hasAxe,
+        lockText:'Owned',
+        apply:(S)=>{ S.player.tools.hasAxe = true; toast('🪓 Hatchet crafted!'); } },
+
+      { id:'tool_pickaxe', name:'Craft Pickaxe', icon:'⛏️', kind:'craft',
+        req:{ wood:5, stone:4 }, out:{}, xp:{ crafting: 14 },
+        note:'Unlocks mining rocks for stone & ore.',
+        available:(S)=> !S.player.tools?.hasPick,
+        lockText:'Owned',
+        apply:(S)=>{ S.player.tools.hasPick = true; toast('⛏️ Pickaxe crafted!'); } },
+
+      { id:'tool_hoe', name:'Craft Hoe', icon:'🪴', kind:'craft',
+        req:{ wood:4, fiber:2 }, out:{}, xp:{ crafting: 12 },
+        note:'Unlocks tilling soil and planting seeds.',
+        available:(S)=> !S.player.tools?.hasHoe,
+        lockText:'Owned',
+        apply:(S)=>{ S.player.tools.hasHoe = true; toast('🪴 Hoe crafted!'); } },
+
+      { id:'tool_watering', name:'Craft Watering Can', icon:'💧', kind:'craft',
+        req:{ wood:4, fiber:2 }, out:{}, xp:{ crafting: 12 },
+        note:'Unlocks watering crops and refilling from water.',
+        available:(S)=> !S.player.tools?.hasWater,
+        lockText:'Owned',
+        apply:(S)=>{ S.player.tools.hasWater = true; toast('💧 Watering Can crafted!'); } },
+
+      { id:'copper_pick', name:'Upgrade Pickaxe (Copper)', icon:'⛏️', kind:'craft',
+        req:{ copper:6, wood:4 }, out:{}, xp:{ crafting: 18 }, note:'Improves mining efficiency.',
+        available:(S)=> !!S.player.tools?.hasPick,
+        lockText:'Need Pickaxe',
+        apply:(S)=>{ S.player.tools.pickTier = Math.max(S.player.tools.pickTier, 1); toast('⛏️ Pickaxe upgraded to Copper!'); } },
+
+      { id:'copper_hatchet', name:'Upgrade Hatchet (Copper)', icon:'🪓', kind:'craft',
+        req:{ copper:5, wood:4 }, out:{}, xp:{ crafting: 18 }, note:'Improves chopping efficiency.',
+        available:(S)=> !!S.player.tools?.hasAxe,
+        lockText:'Need Hatchet',
+        apply:(S)=>{ S.player.tools.axeTier = Math.max(S.player.tools.axeTier, 1); toast('🪓 Hatchet upgraded to Copper!'); } },
+    ];
+
+    // -----------------------------
+    // World generation (chunks)
+    // -----------------------------
+    function key(cx,cy){ return cx+','+cy; }
+    function tileToChunk(tx,ty){
+      const cx = Math.floor(tx / CHUNK);
+      const cy = Math.floor(ty / CHUNK);
+      const lx = tx - cx*CHUNK;
+      const ly = ty - cy*CHUNK;
+      return {cx,cy,lx,ly};
+    }
+
+    function idx(lx,ly){ return ly*CHUNK + lx; }
+
+    function isCottageTile(tx,ty){
+      // cottage footprint centered near origin: top-left (-3,-4), size 6x5 tiles
+      const x0 = -3, y0 = -4, w = 6, h = 5;
+      return (tx>=x0 && tx < x0+w && ty>=y0 && ty < y0+h);
+    }
+
+    function cottageDoorTile(){
+      return {tx:0, ty:1}; // bottom center door-ish
+    }
+
+    
+
+// -----------------------------
+// Phase 2: Cottage Interior (separate scene)
+// -----------------------------
+function makeInterior(){
+  const w = 12, h = 12;
+  const door = {tx: Math.floor(w/2), ty: h-2};
+  const spawn = {tx: door.tx, ty: door.ty-1};
+  const bed = {tx: 3, ty: 4};
+  const chest = {tx: 8, ty: 5};
+  return {
+    w,h, door, spawn, bed, chest
+  };
+}
+
+function interiorSolid(S, tx,ty){
+  const I = S.interior;
+  // bounds
+  if (tx < 0 || ty < 0 || tx >= I.w || ty >= I.h) return true;
+  // walls (1-tile border)
+  if (tx === 0 || ty === 0 || tx === I.w-1 || ty === I.h-1) return true;
+  // furniture collision
+  if ((tx===I.bed.tx && ty===I.bed.ty) || (tx===I.chest.tx && ty===I.chest.ty)) return true;
+  // doorway tile is interactable but not solid
+  return false;
+}
+
+function startTransition(S, opts){
+  if (!S.transition) S.transition = {};
+  if (S.transition.active) return;
+  S.nav = null;
+  S.transition = {
+    active: true,
+    t: 0,
+    dur: opts.dur ?? 0.6,
+    swapped: false,
+    mid: opts.mid || null,
+    end: opts.end || null
+  };
+}
+
+function transitionIntoCottage(S){
+  startTransition(S, {
+    dur: 0.6,
+    mid: () => {
+      // remember outside return position
+      S.home = S.home || { chest:{} };
+      const d = cottageDoorTile();
+      S.home.return = { x: S.player.x, y: S.player.y, dir: S.player.dir, doorTx:d.tx, doorTy:d.ty };
+      S.scene = 'interior';
+      // spawn inside
+      const I = S.interior;
+      S.player.x = I.spawn.tx * TILE;
+      S.player.y = I.spawn.ty * TILE;
+      S.player.dir = 1; // face up
+      // nudge camera instantly so transition feels clean
+      cam.x = S.player.x - (CANVAS_W/zoom)/2 + TILE/2;
+      cam.y = S.player.y - (CANVAS_H/zoom)/2 + TILE/2 - TILE*2;
+    }
+  });
+}
+
+function transitionOutOfCottage(S){
+  startTransition(S, {
+    dur: 0.6,
+    mid: () => {
+      const d = cottageDoorTile();
+      S.scene = 'overworld';
+      // exit position: 1 tile below door (Option B)
+      S.player.x = d.tx * TILE;
+      S.player.y = (d.ty + 1) * TILE;
+      S.player.dir = 0; // face down
+      cam.x = S.player.x - (CANVAS_W/zoom)/2 + TILE/2;
+      cam.y = S.player.y - (CANVAS_H/zoom)/2 + TILE/2 - TILE*2;
+    }
+  });
+}
+
+function transitionSleep(S){
+  startTransition(S, {
+    dur: 0.8,
+    mid: () => {
+      toast('🛏️ Fran rests. A new day begins.');
+      awardXP(S,'exploration', 5);
+      advanceDay(S);
+    }
+  });
+}
+
+function generateChunk(cx,cy, S){
+      const tiles = new Uint8Array(CHUNK*CHUNK);
+      const biomes = new Uint8Array(CHUNK*CHUNK);
+      const ents = new Map();
+      const poi = null;
+
+      for(let ly=0; ly<CHUNK; ly++){
+        for(let lx=0; lx<CHUNK; lx++){
+          const tx = cx*CHUNK + lx;
+          const ty = cy*CHUNK + ly;
+
+          let b = biomeAt(tx,ty, S.seed);
+          let g = groundAt(tx,ty,b,S.seed);
+
+          // Cottage area overrides
+          if (isCottageTile(tx,ty)){
+            b = 1;
+            g = GROUND.GRASS;
+          }
+
+          tiles[idx(lx,ly)] = g;
+          biomes[idx(lx,ly)] = b;
+
+          // Resource entities (skip water, cottage, clearing center)
+          if (g === GROUND.WATER) continue;
+          if (isCottageTile(tx,ty)) continue;
+
+          // Starter clearing: fewer obstacles
+          const dist0 = Math.hypot(tx,ty);
+          const clear = dist0 <= WORLD_CLEARING_R;
+
+          const r = rand2(tx,ty,S.seed+1337);
+          const r2= rand2(tx,ty,S.seed+7331);
+
+          const place = (type, hp, solid=true, extra=null) => {
+            ents.set(lx+','+ly, { type, hp, solid, ...extra });
+          };
+
+          // Place POIs rarely (handled later)
+          // Place resources
+          if (clear){
+            // cozy clearing: more flowers, fewer blockers
+            if (r < 0.09) place('flower', 1, false);
+            else if (r < 0.11) place('bush', 1, true);
+            else if (r < 0.13) place('mushroom', 1, false);
+            continue;
+          }
+
+          switch(b){
+            case 0: // forest
+              if (r < 0.10) place('tree', 3, true);
+              else if (r < 0.18) place('mushroom', 1, false);
+              else if (r < 0.28) place('flower', 1, false);
+              else if (r < 0.33) place('bush', 1, true);
+              break;
+            case 1: // meadow
+              if (r < 0.06) place('tree', 3, true);
+              else if (r < 0.22) place('flower', 1, false);
+              else if (r < 0.26) place('bush', 1, true);
+              break;
+            case 2: // lake
+              if (g === GROUND.SHORE && r < 0.10) place('bush', 1, true);
+              if (g !== GROUND.WATER && r > 0.88) place('flower', 1, false);
+              break;
+            case 3: // stone
+              if (r < 0.12) place('rock', 3, true);
+              else if (r < 0.145) place(r2 < 0.55 ? 'ore_copper' : 'ore_iron', 4, true);
+              break;
+            case 4: // bramble
+              if (r < 0.13) place('berry_bush', 1, true);
+              else if (r < 0.19) place('bush', 1, true);
+              else if (r < 0.28) place('flower', 1, false);
+              else if (r < 0.31) place('mushroom', 1, false);
+              break;
+            case 5: // moonmoss
+              if (r < 0.10) place('glowcap', 1, false);
+              else if (r < 0.16) place('mushroom', 1, false);
+              else if (r < 0.21) place('bush', 1, true);
+              break;
+            case 6: // frost
+              if (r < 0.075) place('pine', 3, true);
+              else if (r < 0.12) place('ice', 2, false);
+              else if (r < 0.16) place('rock', 3, true);
+              break;
+            case 7: // orchard
+              if (r < 0.08) place('tree', 3, true);
+              else if (r < 0.12) place('beehive', 2, true);
+              else if (r < 0.22) place('flower', 1, false);
+              break;
+          }
+        }
+      }
+
+      // POI generation per chunk
+      const distChunks = Math.hypot(cx,cy);
+      let poiObj = null;
+      const pr = rand2(cx,cy,S.seed+9090);
+      if (distChunks > 2 && pr < 0.06){
+        const types = ['picnic','greenhouse','fairy','well','merchant','shrine','archway'];
+        const t = types[Math.floor(rand2(cx,cy,S.seed+2222) * types.length)];
+        // pick a tile location for the POI
+        const px0 = Math.floor(rand2(cx,cy,S.seed+3333) * (CHUNK-6)) + 3;
+        const py0 = Math.floor(rand2(cx,cy,S.seed+4444) * (CHUNK-6)) + 3;
+
+        // ensure not water-ish
+        const groundHere = tiles[idx(px0,py0)];
+        if (groundHere !== GROUND.WATER){
+          poiObj = { type:t, lx:px0, ly:py0, used:false };
+          // POIs are not stored in ents (they may overlap visuals). We'll draw separately.
+        }
+      }
+
+      return { cx,cy, tiles, biomes, ents, farms: new Map(), poi: poiObj };
+    }
+
+    // -----------------------------
+    // Game state (new/load/save)
+    // -----------------------------
+    const SAVE_KEY = 'fernwood_save_v1';
+
+
+    const BACKUP_KEY = SAVE_KEY + '_backups';
+
+    function pushBackupRaw(raw){
+      try{
+        if (!raw) return;
+        const arr = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]');
+        arr.unshift({ t: Date.now(), raw });
+        // Deduplicate identical saves and cap size
+        const seen = new Set();
+        const out = [];
+        for (const it of arr){
+          if (seen.has(it.raw)) continue;
+          seen.add(it.raw);
+          out.push(it);
+          if (out.length >= 8) break;
+        }
+        localStorage.setItem(BACKUP_KEY, JSON.stringify(out));
+      }catch(e){ /* ignore */ }
+    }
+
+    function loadBackups(){
+      try{ return JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]'); }
+      catch(e){ return []; }
+    }
+
+
+    function newGame(seedOverride=null){
+      const seed = seedOverride ?? nowSeed();
+      const S = {
+        ver: 1,
+        seed,
+        scene: 'overworld',
+        interior: makeInterior(),
+        home: { chest: {}, return: null },
+        transition: { active:false, t:0, dur:0.6, swapped:false, mid:null, end:null },
+        time: {
+          day: 1,
+          season: 0,
+          t01: 0.05,      // morning fraction (0..1)
+          weather: 'sunny',
+          cloudiness: 0,
+          rainIntensity: 0,
+          weatherText: 'Sunny skies'
+        },
+        visitedChunks: new Set(),
+        discoveredBiomes: new Set([1]), // meadow from clearing
+        knownArchways: [], // {tx,ty}
+        deltas: {}, // chunkKey -> { removed:[keys], farms:{ "lx,ly": farmObj }, poiUsed:boolean, placed:[{tx,ty,type}] }
+        world: new Map(), // chunk cache
+        player: {
+          name: 'Fran',
+          x: 0 * TILE, // pixels
+          y: 4 * TILE,
+          dir: 0, // 0 down,1 up,2 left,3 right
+          tool: 1, // hotbar selection 1..5
+          health: 10,
+          stamina: 100,
+          hunger: 100,
+          cold: 0,
+          coins: 0,
+          activeSeed: 'turnip_seed',
+          equip: { head: null },
+          tools: { hasWater:false, hasHoe:false, hasAxe:false, hasPick:false, pickTier: 0, axeTier: 0 },
+          levels: { overall: 1, xp: 0, statPoints: 0 },
+          skills: {
+            gardening:{ level:1, xp:0 },
+            foraging:{ level:1, xp:0 },
+            mining:{ level:1, xp:0 },
+            crafting:{ level:1, xp:0 },
+            cooking:{ level:1, xp:0 },
+            exploration:{ level:1, xp:0 },
+          },
+          alloc: { // stat point allocations
+            maxHealth:0,
+            maxStamina:0,
+            moveSpeed:0,
+            toolEff:0,
+            harvestYield:0,
+            luck:0,
+            warmth:0,
+            charm:0
+          },
+          perks: { greenThumb:false, berryKeen:false, softStrike:false, trailblazer:false, heartyMeals:false },
+          buffs: [] // {id,name, duration, mods}
+        },
+        inv: {
+          wood: 12,
+          stone: 6,
+          herb: 2,
+          water: 3,
+          turnip_seed: 10,
+          flower: 2,
+        }
+      };
+      // First day's weather
+      rollWeather(S);
+      // Start chunk discovery
+      markDiscovery(S);
+      return S;
+    }
+
+    function safeLocalStorage(){
+      try{
+        const k='__test__';
+        localStorage.setItem(k,'1');
+        localStorage.removeItem(k);
+        return true;
+      }catch(e){ return false; }
+    }
+
+    function saveGame(S){
+      const payload = {
+        ver: S.ver,
+        seed: S.seed,
+        time: S.time,
+        visitedChunks: Array.from(S.visitedChunks),
+        discoveredBiomes: Array.from(S.discoveredBiomes),
+        knownArchways: S.knownArchways,
+        deltas: S.deltas,
+        player: S.player,
+        inv: S.inv,
+        scene: S.scene,
+        home: S.home
+      };
+      try{
+        if (safeLocalStorage()){
+          const prev = localStorage.getItem(SAVE_KEY);
+          if (prev) pushBackupRaw(prev);
+          localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+          toast('💾 Saved to this browser.');
+        } else {
+          toast('⚠️ localStorage not available. Use Export Save instead.');
+        }
+      }catch(e){
+        console.warn(e);
+        toast('⚠️ Save failed (storage). Use Export Save instead.');
+      }
+    }
+
+    function loadGame(){
+      try{
+        if (!safeLocalStorage()) return null;
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return null;
+        const p = JSON.parse(raw);
+        if (!p || p.ver !== 1) return null;
+        const S = newGame(p.seed);
+        // restore
+        S.seed = p.seed;
+        S.time = p.time;
+        // Normalize older saves (weather fields)
+        if (!S.time.weather){
+          S.time.weather = S.time.raining ? 'rainy' : 'sunny';
+        }
+        if (typeof S.time.cloudiness !== 'number') S.time.cloudiness = (S.time.weather==='cloudy') ? 0.55 : (S.time.weather==='rainy') ? 0.85 : 0;
+        if (typeof S.time.rainIntensity !== 'number') S.time.rainIntensity = (S.time.weather==='rainy') ? 1.0 : 0.0;
+        S.time.raining = (S.time.weather==='rainy');
+        S.visitedChunks = new Set(p.visitedChunks || []);
+        S.discoveredBiomes = new Set(p.discoveredBiomes || []);
+        S.knownArchways = p.knownArchways || [];
+        S.deltas = p.deltas || {};
+        S.player = p.player;
+        S.scene = p.scene || 'overworld';
+        S.home = p.home || { chest: {}, return: null };
+        if (!S.home.chest) S.home.chest = {};
+        // Ensure interior data exists
+        S.interior = S.interior || makeInterior();
+        S.transition = { active:false, t:0, dur:0.6, swapped:false, mid:null, end:null };
+
+        // Tool unlock migration:
+        // Older saves assumed tools were always available, so default to "owned" if flags are missing.
+        if (!S.player.tools) S.player.tools = { hasWater:true, hasHoe:true, hasAxe:true, hasPick:true, pickTier:0, axeTier:0 };
+        if (typeof S.player.tools.hasWater !== 'boolean') S.player.tools.hasWater = true;
+        if (typeof S.player.tools.hasHoe   !== 'boolean') S.player.tools.hasHoe   = true;
+        if (typeof S.player.tools.hasAxe   !== 'boolean') S.player.tools.hasAxe   = true;
+        if (typeof S.player.tools.hasPick  !== 'boolean') S.player.tools.hasPick  = true;
+        if (typeof S.player.tools.pickTier !== 'number')  S.player.tools.pickTier = 0;
+        if (typeof S.player.tools.axeTier  !== 'number')  S.player.tools.axeTier  = 0;
+        if (!toolUnlocked(S.player, S.player.tool)) S.player.tool = 1;
+
+        S.inv = p.inv;
+        toast('🌿 Welcome back, Fran.');
+        return S;
+      }catch(e){
+        console.warn(e);
+        return null;
+      }
+    }
+
+    function exportSave(S){
+      const payload = {
+        ver: S.ver,
+        seed: S.seed,
+        time: S.time,
+        visitedChunks: Array.from(S.visitedChunks),
+        discoveredBiomes: Array.from(S.discoveredBiomes),
+        knownArchways: S.knownArchways,
+        deltas: S.deltas,
+        player: S.player,
+        inv: S.inv
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'fernwood_save.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('📦 Save exported.');
+    }
+
+    function importSave(file, onDone){
+      const reader = new FileReader();
+      reader.onload = () => {
+        try{
+          const p = JSON.parse(String(reader.result));
+          if (!p || p.ver !== 1) throw new Error('Bad save format');
+          const S = newGame(p.seed);
+          S.seed = p.seed;
+          S.time = p.time;
+        // Normalize older saves (weather fields)
+        if (!S.time.weather){
+          S.time.weather = S.time.raining ? 'rainy' : 'sunny';
+        }
+        if (typeof S.time.cloudiness !== 'number') S.time.cloudiness = (S.time.weather==='cloudy') ? 0.55 : (S.time.weather==='rainy') ? 0.85 : 0;
+        if (typeof S.time.rainIntensity !== 'number') S.time.rainIntensity = (S.time.weather==='rainy') ? 1.0 : 0.0;
+        S.time.raining = (S.time.weather==='rainy');
+          S.visitedChunks = new Set(p.visitedChunks || []);
+          S.discoveredBiomes = new Set(p.discoveredBiomes || []);
+          S.knownArchways = p.knownArchways || [];
+          S.deltas = p.deltas || {};
+          S.player = p.player;
+          S.inv = p.inv;
+          toast('📥 Save imported.');
+          onDone(S);
+        }catch(e){
+          console.warn(e);
+          toast('⚠️ Could not import save.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // -----------------------------
+    // Chunk access + deltas
+    // -----------------------------
+    function getChunk(S, cx,cy){
+      const k = key(cx,cy);
+      if (S.world.has(k)) return S.world.get(k);
+
+      const ch = generateChunk(cx,cy,S);
+
+      // Apply deltas (removed ents / farms / poi used / placed items)
+      const d = S.deltas[k];
+      if (d){
+        if (d.removed){
+          for(const localKey of d.removed){
+            ch.ents.delete(localKey);
+          }
+        }
+        if (d.farms){
+          for(const [lk, f] of Object.entries(d.farms)){
+            ch.farms.set(lk, f);
+          }
+        }
+        if (typeof d.poiUsed === 'boolean' && ch.poi){
+          ch.poi.used = d.poiUsed;
+        }
+        if (d.placed){
+          // placed is applied during render via lookup; also used for solidity
+          ch.placed = d.placed.slice();
+        }
+      }
+
+      S.world.set(k, ch);
+      return ch;
+    }
+
+    function recordRemoved(S, tx,ty){
+      const {cx,cy,lx,ly} = tileToChunk(tx,ty);
+      const k = key(cx,cy);
+      S.deltas[k] = S.deltas[k] || {};
+      S.deltas[k].removed = S.deltas[k].removed || [];
+      const lk = lx+','+ly;
+      if (!S.deltas[k].removed.includes(lk)){
+        S.deltas[k].removed.push(lk);
+      }
+    }
+
+    function setFarm(S, tx,ty, farmObj){
+      const {cx,cy,lx,ly} = tileToChunk(tx,ty);
+      const k = key(cx,cy);
+      S.deltas[k] = S.deltas[k] || {};
+      S.deltas[k].farms = S.deltas[k].farms || {};
+      S.deltas[k].farms[lx+','+ly] = farmObj;
+      // update cache if exists
+      if (S.world.has(k)){
+        S.world.get(k).farms.set(lx+','+ly, farmObj);
+      }
+    }
+
+    function setPoiUsed(S, cx,cy, used){
+      const k = key(cx,cy);
+      S.deltas[k] = S.deltas[k] || {};
+      S.deltas[k].poiUsed = used;
+      if (S.world.has(k)){
+        const ch = S.world.get(k);
+        if (ch.poi) ch.poi.used = used;
+      }
+    }
+
+    function addPlaced(S, tx,ty, type){
+      const {cx,cy,lx,ly} = tileToChunk(tx,ty);
+      const k = key(cx,cy);
+      S.deltas[k] = S.deltas[k] || {};
+      S.deltas[k].placed = S.deltas[k].placed || [];
+      S.deltas[k].placed.push({tx,ty,type});
+      if (S.world.has(k)){
+        const ch = S.world.get(k);
+        ch.placed = ch.placed || [];
+        ch.placed.push({tx,ty,type});
+      }
+    }
+
+    function placedAt(S, tx,ty){
+      const {cx,cy} = tileToChunk(tx,ty);
+      const k = key(cx,cy);
+      const d = S.deltas[k];
+      if (!d || !d.placed) return null;
+      for(const p of d.placed){
+        if (p.tx===tx && p.ty===ty) return p;
+      }
+      return null;
+    }
+
+    // -----------------------------
+    // Inventory helpers
+    // -----------------------------
+    function invCount(S, id){ return S.inv[id] | 0; }
+    function invAdd(S, id, n){
+      S.inv[id] = (S.inv[id] | 0) + n;
+      if (S.inv[id] <= 0) delete S.inv[id];
+    }
+    function invHas(S, req){
+      for(const [id,n] of Object.entries(req)){
+        if ((S.inv[id] | 0) < n) return false;
+      }
+      return true;
+    }
+    function invSpend(S, req){
+      for(const [id,n] of Object.entries(req)){
+        invAdd(S,id,-n);
+      }
+    }
+
+    // -----------------------------
+    // XP / leveling
+    // -----------------------------
+    function needOverall(level){
+      return Math.floor(100 + level*70 + level*level*10);
+    }
+    function needSkill(level){
+      return Math.floor(35 + level*30 + level*level*3);
+    }
+
+    function awardXP(S, skillId, amt){
+      const P = S.player;
+      const sk = P.skills[skillId];
+      if (!sk) return;
+
+      // Overall XP always grows too (scaled)
+      P.levels.xp += Math.floor(amt * 0.85);
+
+      // skill XP
+      sk.xp += amt;
+
+      // level up skill
+      while(sk.level < 20){
+        const need = needSkill(sk.level);
+        if (sk.xp < need) break;
+        sk.xp -= need;
+        sk.level += 1;
+        toast(`📘 ${capitalize(skillId)} Lv ${sk.level}!`);
+
+        // perk unlock at level 5
+        if (sk.level === 5){
+          if (skillId === 'gardening') P.perks.greenThumb = true;
+          if (skillId === 'foraging') P.perks.berryKeen = true;
+          if (skillId === 'mining') P.perks.softStrike = true;
+          if (skillId === 'exploration') P.perks.trailblazer = true;
+          if (skillId === 'cooking') P.perks.heartyMeals = true;
+          if (skillId === 'crafting') { /* could add perk later */ }
+          toast('🌿 New perk unlocked!');
+        }
+      }
+
+      // level up overall
+      while(P.levels.overall < 50){
+        const need = needOverall(P.levels.overall);
+        if (P.levels.xp < need) break;
+        P.levels.xp -= need;
+        P.levels.overall += 1;
+        P.levels.statPoints += 1;
+        // a gentle stamina bump every few levels
+        if (P.levels.overall % 3 === 0) P.alloc.maxStamina += 2;
+        toast(`✨ Overall Level ${P.levels.overall}! +1 Stat Point`);
+      }
+    }
+
+    function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    // -----------------------------
+    // Buffs / derived stats
+    // -----------------------------
+    function baseStats(P){
+      const maxHealth = 10 + P.alloc.maxHealth;
+      const maxStamina = 100 + P.alloc.maxStamina*5;
+      const moveSpeed = 52 + P.alloc.moveSpeed*2 + (P.perks.trailblazer ? 3 : 0);
+      const toolEff = 1.0 + P.alloc.toolEff*0.06 + (P.playerToolBonus || 0);
+      const harvestYield = 0.0 + P.alloc.harvestYield*0.02 + (P.perks.berryKeen ? 0.03 : 0);
+      const luck = 0.0 + P.alloc.luck*0.4 + (P.perks.trailblazer ? 0.2 : 0);
+      const warmth = 0.0 + P.alloc.warmth*0.6;
+      const charm = 0.0 + P.alloc.charm*0.4;
+      let staminaRegen = 7.5;
+
+      // equipment
+      if (P.equip.head === 'flower_crown') {
+        // small luck boost
+      }
+
+      // buffs modify
+      let mods = { maxHealth:0, maxStamina:0, moveSpeed:0, toolEff:0, harvestYield:0, luck:0, warmth:0, charm:0, staminaRegen:0 };
+      for(const b of P.buffs){
+        for(const [k,v] of Object.entries(b.mods || {})){
+          mods[k] = (mods[k] || 0) + v;
+        }
+      }
+      // Equip mods
+      const head = P.equip.head ? ITEMS[P.equip.head] : null;
+      if (head && head.equip && head.equip.mods){
+        for(const [k,v] of Object.entries(head.equip.mods)){
+          mods[k] = (mods[k] || 0) + v;
+        }
+      }
+
+      return {
+        maxHealth: maxHealth + (mods.maxHealth||0),
+        maxStamina: maxStamina + (mods.maxStamina||0),
+        moveSpeed: moveSpeed + (mods.moveSpeed||0),
+        toolEff: toolEff + (mods.toolEff||0),
+        harvestYield: harvestYield + (mods.harvestYield||0),
+        luck: luck + (mods.luck||0),
+        warmth: warmth + (mods.warmth||0),
+        charm: charm + (mods.charm||0),
+        staminaRegen: staminaRegen + (mods.staminaRegen||0)
+      };
+    }
+
+    function tickBuffs(S, dt){
+      const P = S.player;
+      if (!P.buffs.length) return;
+      for(let i=P.buffs.length-1; i>=0; i--){
+        P.buffs[i].duration -= dt;
+        if (P.buffs[i].duration <= 0){
+          toast(`⏳ ${P.buffs[i].name} faded.`);
+          P.buffs.splice(i,1);
+        }
+      }
+    }
+
+    function addBuff(S, buff){
+      const P = S.player;
+      // refresh if exists
+      const i = P.buffs.findIndex(b => b.id === buff.id);
+      const dur = P.perks.heartyMeals ? Math.floor(buff.duration * 1.5) : buff.duration;
+      if (i >= 0){
+        P.buffs[i].duration = dur;
+      } else {
+        P.buffs.push({ ...buff, duration: dur });
+      }
+      toast(`✨ Buff: ${buff.name}`);
+    }
+
+    // -----------------------------
+    // Interactions
+    // -----------------------------
+    const TOOL = {
+      1: { id:'hand', name:'Hands', icon:'🖐️' },
+      2: { id:'water', name:'Watering Can', icon:'🫗' },
+      3: { id:'hoe', name:'Hoe', icon:'🧑‍🌾' },
+      4: { id:'axe', name:'Hatchet', icon:'🪓' },
+      5: { id:'pick', name:'Pickaxe', icon:'⛏️' }
+    };
+
+    function toolUnlocked(P, idx){
+      if (idx === 1) return true; // hand
+      const t = TOOL[idx]?.id;
+      const tools = P.tools || {};
+      if (t === 'water') return !!tools.hasWater;
+      if (t === 'hoe')   return !!tools.hasHoe;
+      if (t === 'axe')   return !!tools.hasAxe;
+      if (t === 'pick')  return !!tools.hasPick;
+      return true;
+    }
+
+    function setToolSafe(S, idx){
+      const P = S.player;
+      if (toolUnlocked(P, idx)){
+        P.tool = idx;
+      } else {
+        P.tool = 1;
+        toast(`🔒 ${TOOL[idx].name} not crafted yet.`);
+      }
+    }
+
+
+    function facingVec(dir){
+      if (dir===0) return {x:0,y:1};
+      if (dir===1) return {x:0,y:-1};
+      if (dir===2) return {x:-1,y:0};
+      return {x:1,y:0};
+    }
+
+    function playerTile(S){
+      return { tx: Math.floor(S.player.x / TILE), ty: Math.floor(S.player.y / TILE) };
+    }
+
+    function targetTile(S){
+      const {tx,ty} = playerTile(S);
+      const f = facingVec(S.player.dir);
+      return { tx: tx + f.x, ty: ty + f.y };
+    }
+
+    function entityAt(S, tx,ty){
+      const {cx,cy,lx,ly} = tileToChunk(tx,ty);
+      const ch = getChunk(S,cx,cy);
+      return ch.ents.get(lx+','+ly) || null;
+    }
+
+    function farmAt(S, tx,ty){
+      const {cx,cy,lx,ly} = tileToChunk(tx,ty);
+      const ch = getChunk(S,cx,cy);
+      return ch.farms.get(lx+','+ly) || null;
+    }
+
+    function tileGround(S, tx,ty){
+      const {cx,cy,lx,ly} = tileToChunk(tx,ty);
+      const ch = getChunk(S,cx,cy);
+      return ch.tiles[idx(lx,ly)];
+    }
+
+    function tileBiomeKey(S, tx,ty){
+      const {cx,cy,lx,ly} = tileToChunk(tx,ty);
+      const ch = getChunk(S,cx,cy);
+      return ch.biomes[idx(lx,ly)];
+    }
+
+    function isWater(S, tx,ty){
+      if (S.scene === 'interior') return false;
+      return tileGround(S,tx,ty) === GROUND.WATER;
+    }
+
+    function isSolid(S, tx,ty){
+      if (S.scene === 'interior'){
+        return interiorSolid(S, tx,ty);
+      }
+      if (isWater(S,tx,ty)) return true;
+      if (isCottageTile(tx,ty)) return true;
+      const ent = entityAt(S,tx,ty);
+      if (ent && ent.solid) return true;
+      const p = placedAt(S,tx,ty);
+      if (p && p.type === 'campfire') return true; // small collision
+      return false;
+    }
+
+    function inRange(a,b, r){ return Math.hypot(a.x-b.x, a.y-b.y) <= r; }
+
+    function interact(S, tOverride){
+      const P = S.player;
+      const stats = baseStats(P);
+
+      if (!toolUnlocked(P, P.tool)) P.tool = 1;
+      const t = tOverride || targetTile(S);
+      const tool = TOOL[P.tool].id;
+
+      // Tool unlock gating (Phase 1): you start with only your hands.
+      if (tool !== 'hand'){
+        const T = (P.tools || {});
+        if (tool === 'water' && !T.hasWater){ toast('🔒 Craft a Watering Can to use water.'); return; }
+        if (tool === 'hoe'   && !T.hasHoe){   toast('🔒 Craft a Hoe to till and plant.'); return; }
+        if (tool === 'axe'   && !T.hasAxe){   toast('🔒 Craft a Hatchet to chop trees.'); return; }
+        if (tool === 'pick'  && !T.hasPick){  toast('🔒 Craft a Pickaxe to mine stone & ore.'); return; }
+      }
+
+      // Phase 2: Cottage interior interactions
+      if (S.scene === 'overworld'){
+        const door = cottageDoorTile();
+        if (t.tx===door.tx && t.ty===door.ty){
+          hintText.innerHTML = '<b>Home sweet cottage.</b> Press <span class="kbd">E</span> to enter.';
+          if (!anyModalOpen() && !S.transition?.active){
+            transitionIntoCottage(S);
+          }
+          return;
+        }
+      } else if (S.scene === 'interior'){
+        const I = S.interior;
+        // door (exit)
+        if (t.tx===I.door.tx && t.ty===I.door.ty){
+          hintText.innerHTML = '<b>Front door.</b> Press <span class="kbd">E</span> to step outside.';
+          if (!anyModalOpen() && !S.transition?.active){
+            transitionOutOfCottage(S);
+          }
+          return;
+        }
+        // chest
+        if (t.tx===I.chest.tx && t.ty===I.chest.ty){
+          hintText.innerHTML = '<b>Chest.</b> Press <span class="kbd">E</span> to open storage.';
+          openChestUI(S);
+          return;
+        }
+        // bed
+        if (t.tx===I.bed.tx && t.ty===I.bed.ty){
+          hintText.innerHTML = '<b>Bed.</b> Press <span class="kbd">Space</span> to sleep.';
+          // sleeping handled by Space in update()
+          return;
+        }
+      }
+
+      // Placeable campfire
+      if (tool === 'hand'){
+        // if holding a placeable? We keep it simple: place campfire if player has one and presses Shift+E
+        // handled via key combo in input
+      }
+
+      // If POI on this tile
+      const {cx,cy,lx,ly} = tileToChunk(t.tx,t.ty);
+      const ch = getChunk(S,cx,cy);
+      if (ch.poi && !ch.poi.used && ch.poi.lx === lx && ch.poi.ly === ly){
+        return usePOI(S, ch);
+      }
+
+      // If placed object
+      const placed = placedAt(S, t.tx,t.ty);
+      if (placed && placed.type === 'campfire'){
+        toast('🔥 Cozy warmth. You feel safe here.');
+        // campfire warmth buff
+        addBuff(S, { id:'campfire_warmth', name:'Campfire Warmth', duration: 90, mods:{ warmth:+1.5, staminaRegen:+1.5 } });
+        awardXP(S,'exploration', 6);
+        return;
+      }
+
+      const ent = entityAt(S, t.tx,t.ty);
+      const farm = farmAt(S, t.tx,t.ty);
+      const ground = tileGround(S, t.tx,t.ty);
+
+      // Farming interactions
+      if (tool === 'hoe'){
+        const staminaCost = 4;
+        if (P.stamina < staminaCost){ toast('😮‍💨 Too tired to hoe.'); return; }
+        if (ground === GROUND.WATER || isCottageTile(t.tx,t.ty)){ toast('🌊 Not here.'); return; }
+
+        const entBlock = entityAt(S, t.tx, t.ty);
+        if (entBlock){ toast('🌿 Clear the spot first.'); return; }
+
+        if (!farm){
+          // till ground
+          P.stamina -= staminaCost;
+          setFarm(S,t.tx,t.ty,{ tilled:true, watered:false, crop:null, stage:0, prog:0, plantedDay:S.time.day, plantedSeason:S.time.season, ready:false });
+          awardXP(S,'gardening', 6);
+          toast('🧑‍🌾 Tilled soil.');
+          return;
+        } else {
+          // plant if tilled and no crop
+          if (farm.tilled && !farm.crop){
+            const seed = P.activeSeed;
+            if (!seed || !ITEMS[seed] || !ITEMS[seed].seedOf){ toast('🌱 No active seed. Open inventory to select one.'); return; }
+            if (invCount(S,seed) <= 0){ toast('🌱 Out of seeds.'); return; }
+
+            const cropId = ITEMS[seed].seedOf;
+            const crop = CROPS[cropId];
+            if (!crop){ toast('🌱 That seed seems odd…'); return; }
+            if (!crop.seasons.includes(S.time.season)){
+              toast('📅 Wrong season for that crop.');
+              return;
+            }
+            invAdd(S,seed,-1);
+            P.stamina -= staminaCost;
+            const f2 = { ...farm, crop: cropId, stage:0, prog:0, watered:false, ready:false, plantedDay:S.time.day, plantedSeason:S.time.season };
+            setFarm(S,t.tx,t.ty,f2);
+            awardXP(S,'gardening', 8);
+            toast(`🌱 Planted ${crop.name}.`);
+            return;
+          }
+          if (farm.ready){
+            // harvest
+            const crop = CROPS[farm.crop];
+            if (!crop){ return; }
+            P.stamina -= 3;
+            const bonusChance = clamp(stats.harvestYield + (stats.luck*0.04), 0, 0.35);
+            const amount = 1 + (Math.random() < bonusChance ? 1 : 0);
+            invAdd(S, crop.harvest, amount);
+            awardXP(S,'gardening', crop.xp.gardening + (amount-1)*4);
+            toast(`🥕 Harvested ${crop.name}${amount>1?' (bonus!)':''}.`);
+            const f3 = { ...farm, crop:null, stage:0, prog:0, watered:false, ready:false };
+            setFarm(S,t.tx,t.ty,f3);
+            return;
+          }
+          toast('🪴 Soil is ready. Water, grow, harvest.');
+          return;
+        }
+      }
+
+      if (tool === 'water'){
+        const staminaCost = 3;
+        if (P.stamina < staminaCost){ toast('😮‍💨 Too tired to water.'); return; }
+        // Refill from natural water
+        if (tileGround(S, t.tx, t.ty) === GROUND.WATER){
+          invAdd(S,'water', 5);
+          P.stamina -= 1;
+          toast('💧 Refilled water at the lake.');
+          awardXP(S,'exploration', 4);
+          return;
+        }
+        const f = farmAt(S, t.tx,t.ty);
+        if (!f || !f.tilled){ toast('💧 Water tilled soil.'); return; }
+        if (invCount(S,'water') <= 0){
+          toast('💧 Out of water. Find a well POI to refill.');
+          return;
+        }
+        invAdd(S,'water', -1);
+        P.stamina -= staminaCost;
+        setFarm(S,t.tx,t.ty,{ ...f, watered:true });
+        awardXP(S,'gardening', 4);
+        toast('💧 Watered.');
+        return;
+      }
+
+      // Resource interactions
+      if (ent){
+        if (ent.type === 'tree' || ent.type === 'pine'){
+          if (tool !== 'axe'){ toast('🪓 A hatchet would help.'); return; }
+          const staminaCost = S.player.perks.softStrike ? 6 : 8;
+          if (P.stamina < staminaCost){ toast('😮‍💨 Too tired to chop.'); return; }
+          P.stamina -= staminaCost;
+          const dmg = 1 + (P.tools.axeTier>=1 ? 1 : 0);
+          ent.hp -= dmg;
+          awardXP(S,'foraging', 3);
+          if (ent.hp <= 0){
+            recordRemoved(S,t.tx,t.ty);
+            // remove from cache chunk too
+            getChunk(S,cx,cy).ents.delete(lx+','+ly);
+            const woodGain = 3 + (Math.random() < 0.25 + stats.luck*0.02 ? 1 : 0);
+            invAdd(S,'wood', woodGain);
+            awardXP(S,'foraging', 8);
+            toast(`🪵 +${woodGain} wood`);
+          } else {
+            toast('🪓 Chop…');
+          }
+          return;
+        }
+
+        if (ent.type === 'rock' || ent.type.startsWith('ore_')){
+          if (tool !== 'pick'){ toast('⛏️ A pickaxe would help.'); return; }
+          const staminaCost = S.player.perks.softStrike ? 6 : 8;
+          if (P.stamina < staminaCost){ toast('😮‍💨 Too tired to mine.'); return; }
+          P.stamina -= staminaCost;
+          const dmg = 1 + (P.tools.pickTier>=1 ? 1 : 0);
+          ent.hp -= dmg;
+          awardXP(S,'mining', 6);
+          if (ent.hp <= 0){
+            recordRemoved(S,t.tx,t.ty);
+            getChunk(S,cx,cy).ents.delete(lx+','+ly);
+            if (ent.type === 'ore_copper'){
+              const gain = 2 + (Math.random()<0.2?1:0);
+              invAdd(S,'copper', gain);
+              toast(`🟠 +${gain} copper ore`);
+            } else if (ent.type === 'ore_iron'){
+              const gain = 2 + (Math.random()<0.15?1:0);
+              invAdd(S,'iron', gain);
+              toast(`⚪ +${gain} iron ore`);
+            } else {
+              const gain = 2 + (Math.random()<0.25?1:0);
+              invAdd(S,'stone', gain);
+              toast(`🪨 +${gain} stone`);
+            }
+            return;
+          } else {
+            toast('⛏️ Tap…');
+          }
+          return;
+        }
+
+        // foraging nodes
+        if (tool !== 'hand' && tool !== 'hoe'){
+          // allow with hands best
+        }
+        if (ent.type === 'flower'){
+          recordRemoved(S,t.tx,t.ty);
+          getChunk(S,cx,cy).ents.delete(lx+','+ly);
+          invAdd(S,'flower', 1);
+          awardXP(S,'foraging', 6);
+          toast('🌸 Picked flowers.');
+          return;
+        }
+        if (ent.type === 'bush'){
+          recordRemoved(S,t.tx,t.ty);
+          getChunk(S,cx,cy).ents.delete(lx+','+ly);
+          invAdd(S,'fiber', 1 + (Math.random()<0.35?1:0));
+          awardXP(S,'foraging', 6);
+          toast('🧵 Gathered fiber.');
+          return;
+        }
+        if (ent.type === 'berry_bush'){
+          recordRemoved(S,t.tx,t.ty);
+          getChunk(S,cx,cy).ents.delete(lx+','+ly);
+          const base = 2 + (Math.random()<0.4?1:0);
+          const extra = P.perks.berryKeen ? 1 : 0;
+          invAdd(S,'berry', base + extra);
+          awardXP(S,'foraging', 8);
+          toast(`🫐 +${base+extra} berries`);
+          return;
+        }
+        if (ent.type === 'mushroom'){
+          recordRemoved(S,t.tx,t.ty);
+          getChunk(S,cx,cy).ents.delete(lx+','+ly);
+          invAdd(S,'mushroom', 1);
+          awardXP(S,'foraging', 7);
+          toast('🍄 Mushroom for the pantry.');
+          return;
+        }
+        if (ent.type === 'glowcap'){
+          recordRemoved(S,t.tx,t.ty);
+          getChunk(S,cx,cy).ents.delete(lx+','+ly);
+          invAdd(S,'glowcap', 1);
+          awardXP(S,'foraging', 10);
+          toast('✨ Glowcap collected.');
+          return;
+        }
+        if (ent.type === 'ice'){
+          recordRemoved(S,t.tx,t.ty);
+          getChunk(S,cx,cy).ents.delete(lx+','+ly);
+          invAdd(S,'ice', 1 + (Math.random()<0.25?1:0));
+          awardXP(S,'mining', 8);
+          toast('🧊 Ice crystal.');
+          return;
+        }
+        if (ent.type === 'beehive'){
+          // a small risk-free "sting" (just stamina loss)
+          const staminaCost = 5;
+          if (P.stamina < staminaCost){ toast('😮‍💨 Too tired.'); return; }
+          P.stamina -= staminaCost;
+          recordRemoved(S,t.tx,t.ty);
+          getChunk(S,cx,cy).ents.delete(lx+','+ly);
+          invAdd(S,'honey', 1 + (Math.random()<0.35?1:0));
+          awardXP(S,'foraging', 12);
+          toast('🍯 Honeycomb collected (sweet!).');
+          return;
+        }
+      }
+
+      // If no entity, generic: forage herbs sometimes
+      if (tool === 'hand'){
+        const b = tileBiomeKey(S, t.tx,t.ty);
+        const r = Math.random();
+        if (b===0 || b===4 || b===5){
+          if (r < 0.35){
+            invAdd(S,'herb', 1);
+            awardXP(S,'foraging', 6);
+            toast('🌿 Found herbs.');
+            return;
+          }
+        }
+      }
+
+      toast('…Nothing to do there.');
+    }
+
+    function usePOI(S, ch){
+      const P = S.player;
+      const {cx,cy} = ch;
+
+      switch(ch.poi.type){
+        case 'picnic':
+          invAdd(S,'sandwich', 1);
+          awardXP(S,'exploration', 18);
+          toast('🥪 Found an abandoned picnic—still delicious.');
+          break;
+        case 'well':
+          // refill water
+          invAdd(S,'water', 5);
+          awardXP(S,'exploration', 10);
+          toast('💧 Refilled water at the old well.');
+          break;
+        case 'fairy':
+          addBuff(S, { id:'fairy_bless', name:'Fairy Ring Blessing', duration: 240, mods:{ luck:+1.2, moveSpeed:+3 } });
+          awardXP(S,'exploration', 22);
+          toast('🧚 Tiny lights dance—luck feels brighter.');
+          break;
+        case 'shrine':
+          // grant a stat point or skill xp
+          P.levels.statPoints += 1;
+          awardXP(S,'exploration', 12);
+          toast('⛩️ A bramble shrine grants +1 Stat Point.');
+          break;
+        case 'merchant':
+          // simple trade: convert a few resources to coins and vice versa
+          openMerchant(S);
+          break;
+        case 'greenhouse':
+          toast('🏚️ A ruined greenhouse… someday you could restore it.');
+          awardXP(S,'exploration', 10);
+          break;
+        case 'archway':
+          const tx = cx*CHUNK + ch.poi.lx;
+          const ty = cy*CHUNK + ch.poi.ly;
+          S.knownArchways.push({tx,ty});
+          toast('🪨 Mossy archway discovered! (Fast travel enabled.)');
+          awardXP(S,'exploration', 25);
+          break;
+      }
+
+      ch.poi.used = true;
+      setPoiUsed(S, cx,cy, true);
+    }
+
+    // Merchant modal via craft modal quick hack
+    function openMerchant(S){
+      // We'll repurpose the crafting modal content for a simple shop UI
+      showModal(modalCraft);
+      const P = S.player;
+      const priceMod = clamp(1.0 - (baseStats(P).charm * 0.04), 0.75, 1.0);
+
+      const offers = [
+        { buy:'turnip_seed',  qty:5, cost: 6 },
+        { buy:'blueberry_seed', qty:5, cost: 8 },
+        { buy:'pumpkin_seed', qty:3, cost: 10 },
+        { buy:'snowroot_seed', qty:5, cost: 9 },
+        { buy:'water', qty:5, cost: 4 },
+      ];
+      const sells = [
+        { sell:'turnip', price: 3 },
+        { sell:'blueberry', price: 4 },
+        { sell:'pumpkin', price: 6 },
+        { sell:'snowroot', price: 4 },
+        { sell:'honey', price: 7 },
+        { sell:'copper', price: 3 },
+        { sell:'iron', price: 4 },
+      ];
+
+      craftList.innerHTML = '';
+      const head = document.createElement('div');
+      head.className = 'row';
+      head.innerHTML = `<div><b>🛒 Traveling Merchant Wagon</b><div style="opacity:.85; font-size:13px; margin-top:2px;">Trade gently. Charm lowers prices a little.</div></div>
+                        <div class="pill">🪙 Coins: <b>${P.coins}</b></div>`;
+      craftList.appendChild(head);
+
+      const buyBox = document.createElement('div');
+      buyBox.className = 'panel';
+      buyBox.style.padding = '12px';
+      buyBox.style.marginTop = '10px';
+      buyBox.innerHTML = `<div style="font-weight:900; margin-bottom:10px;">Buy</div>`;
+      const buyList = document.createElement('div');
+      buyList.className='list';
+
+      for(const o of offers){
+        const cost = Math.ceil(o.cost * priceMod);
+        const row = document.createElement('div');
+        row.className='row';
+        row.innerHTML = `<div><b>${ITEMS[o.buy].icon} ${ITEMS[o.buy].name}</b><div style="opacity:.85; font-size:13px;">x${o.qty} for 🪙 ${cost}</div></div>`;
+        const btn = document.createElement('button');
+        btn.className='btn';
+        btn.textContent='Buy';
+        btn.disabled = (P.coins < cost);
+        btn.onclick = () => {
+          if (P.coins < cost) return;
+          P.coins -= cost;
+          invAdd(S,o.buy,o.qty);
+          toast('🛒 Purchased.');
+          openMerchant(S);
+        };
+        row.appendChild(btn);
+        buyList.appendChild(row);
+      }
+      buyBox.appendChild(buyList);
+      craftList.appendChild(buyBox);
+
+      const sellBox = document.createElement('div');
+      sellBox.className='panel';
+      sellBox.style.padding='12px';
+      sellBox.style.marginTop='10px';
+      sellBox.innerHTML = `<div style="font-weight:900; margin-bottom:10px;">Sell</div>`;
+      const sellList = document.createElement('div');
+      sellList.className='list';
+
+      for(const s of sells){
+        const price = Math.max(1, Math.floor(s.price * (1 + baseStats(P).charm*0.02)));
+        const count = invCount(S,s.sell);
+        const row = document.createElement('div');
+        row.className='row';
+        row.innerHTML = `<div><b>${ITEMS[s.sell].icon} ${ITEMS[s.sell].name}</b><div style="opacity:.85; font-size:13px;">You have ${count} • 🪙 ${price} each</div></div>`;
+        const btn = document.createElement('button');
+        btn.className='btn';
+        btn.textContent='Sell 1';
+        btn.disabled = (count <= 0);
+        btn.onclick = () => {
+          if (invCount(S,s.sell) <= 0) return;
+          invAdd(S,s.sell,-1);
+          P.coins += price;
+          toast('🪙 Sold.');
+          openMerchant(S);
+        };
+        row.appendChild(btn);
+        sellList.appendChild(row);
+      }
+      sellBox.appendChild(sellList);
+      craftList.appendChild(sellBox);
+
+      moneyPill.textContent = `🪙 ${P.coins} coins`;
+    }
+
+    // -----------------------------
+    // Time, weather, day advance
+    // -----------------------------
+    function rollWeather(S){
+      // Starts sunny (day 1), then gently varies by season into sunny / cloudy / rainy.
+      const firstDay = (S.time.day === 1 && S.time.season === 0);
+      let weather = 'sunny';
+      if (!firstDay){
+        const d = S.time.day + S.time.season*99;
+        const r = rand2(d, 777, S.seed+555);
+
+        // season bias: spring a bit wetter, winter a bit calmer (snow visuals handled elsewhere)
+        const rainyP  = (S.time.season === 0) ? 0.20 : (S.time.season === 1) ? 0.26 : (S.time.season === 2) ? 0.18 : 0.12;
+        const cloudyP = (S.time.season === 2) ? 0.44 : 0.36;
+
+        if (r < rainyP) weather = 'rainy';
+        else if (r < rainyP + cloudyP) weather = 'cloudy';
+        else weather = 'sunny';
+      }
+
+      S.time.weather = weather;
+      if (typeof S.time.cloudiness !== 'number') S.time.cloudiness = 0;
+      if (typeof S.time.rainIntensity !== 'number') S.time.rainIntensity = 0;
+
+      S.time.weatherText =
+        (weather === 'sunny')  ? 'Sunny skies' :
+        (weather === 'cloudy') ? 'Cloudy & calm' :
+                                 'Rainy day • Crops auto-water';
+
+      // backwards-compatible flag (used by some effects)
+      S.time.raining = (weather === 'rainy');
+    }
+
+    function advanceDay(S, forced=false){
+      const P = S.player;
+      S.time.day += 1;
+      if (S.time.day > 7){
+        S.time.day = 1;
+        S.time.season = (S.time.season + 1) % 4;
+        toast(`📅 New season: ${SEASONS[S.time.season]}!`);
+      }
+      S.time.t01 = 0.05;
+      rollWeather(S);
+
+      // Restore gently
+      P.stamina = baseStats(P).maxStamina;
+      P.health = Math.min(baseStats(P).maxHealth, P.health + 2);
+      P.hunger = Math.max(40, P.hunger - 18);
+      P.cold = Math.max(0, P.cold - 30);
+
+      // Grow crops in all cached chunks + deltas
+      growCropsEverywhere(S);
+
+      // Autosave occasionally
+      if (!forced) saveGame(S);
+    }
+
+    function growCropsEverywhere(S){
+      // iterate deltas farms (not all chunks)
+      for(const [k, d] of Object.entries(S.deltas)){
+        if (!d.farms) continue;
+        for(const [lk, f] of Object.entries(d.farms)){
+          if (!f || !f.tilled || !f.crop) continue;
+          const crop = CROPS[f.crop];
+          if (!crop) continue;
+
+          // if wrong season, pause growth (gentle)
+          if (!crop.seasons.includes(S.time.season)){
+            // keeps plant but doesn't grow
+            d.farms[lk] = { ...f, watered:false };
+            continue;
+          }
+
+          const watered = f.watered || S.time.raining;
+          const growthBoost = S.player.perks.greenThumb ? 0.25 : 0.0;
+          let prog = f.prog || 0;
+          let stage = f.stage || 0;
+
+          if (watered){
+            prog += 1.0 + growthBoost;
+            // advance stages based on daysPerStage (allows fractional boosts)
+            while (prog >= crop.daysPerStage){
+              prog -= crop.daysPerStage;
+              stage += 1;
+            }
+          }
+          stage = Math.min(stage, crop.stages-1);
+          const ready = (stage >= crop.stages-1);
+          d.farms[lk] = { ...f, watered:false, prog, stage: Math.min(stage, crop.stages-1), ready };
+        }
+        // keep cache updated if chunk exists
+        if (S.world.has(k)){
+          const ch = S.world.get(k);
+          for(const [lk, f] of Object.entries(d.farms)){
+            ch.farms.set(lk, f);
+          }
+        }
+      }
+    }
+
+    // -----------------------------
+    // Discovery (fog-of-war)
+    // -----------------------------
+    function markDiscovery(S){
+      const {tx,ty} = playerTile(S);
+      const {cx,cy} = tileToChunk(tx,ty);
+      const k = key(cx,cy);
+      if (!S.visitedChunks.has(k)){
+        S.visitedChunks.add(k);
+        awardXP(S,'exploration', 10);
+      }
+      const b = tileBiomeKey(S, tx,ty);
+      if (!S.discoveredBiomes.has(b)){
+        S.discoveredBiomes.add(b);
+        awardXP(S,'exploration', 25);
+        toast(`🗺️ New biome: ${BIOMES[b].name}`);
+      }
+    }
+
+    // -----------------------------
+    // Rendering helpers
+    // -----------------------------
+    function drawSprite(img, wx,wy){
+      ctx.drawImage(img, wx, wy);
+    }
+
+    const _visEnts = [];
+
+    function drawWorld(S, camX, camY){
+      const left = Math.floor(camX / TILE);
+      const top  = Math.floor(camY / TILE);
+      const right = left + Math.ceil((CANVAS_W / zoom) / TILE) + 3;
+      const bottom= top  + Math.ceil((CANVAS_H / zoom) / TILE) + 3;
+
+      const cx0 = Math.floor(left / CHUNK);
+      const cy0 = Math.floor(top / CHUNK);
+      const cx1 = Math.floor((right - 1) / CHUNK);
+      const cy1 = Math.floor((bottom - 1) / CHUNK);
+
+      // tiles + biome wash (chunk-batched to avoid per-tile tileToChunk/getChunk allocations)
+      let lastWash = null;
+      for(let cy=cy0; cy<=cy1; cy++){
+        const chunkY = cy * CHUNK;
+        const ty0 = Math.max(top, chunkY);
+        const ty1 = Math.min(bottom, chunkY + CHUNK);
+
+        for(let cx=cx0; cx<=cx1; cx++){
+          const chunkX = cx * CHUNK;
+          const tx0 = Math.max(left, chunkX);
+          const tx1 = Math.min(right, chunkX + CHUNK);
+
+          const ch = getChunk(S, cx, cy);
+
+          for(let ty=ty0; ty<ty1; ty++){
+            const ly = ty - chunkY;
+            const row = ly * CHUNK;
+            const wy = ty*TILE - camY;
+            let wx = tx0*TILE - camX;
+
+            for(let tx=tx0; tx<tx1; tx++){
+              const lx = tx - chunkX;
+              const i = row + lx;
+
+              const g = ch.tiles[i];
+              const b = ch.biomes[i];
+
+              ctx.drawImage(SPR.tiles[g], wx, wy);
+
+              const wash = (BIOMES[b] && BIOMES[b].wash) ? BIOMES[b].wash : 'rgba(0,0,0,0.08)';
+              if (wash !== lastWash){
+                ctx.fillStyle = wash;
+                lastWash = wash;
+              }
+              ctx.fillRect(wx, wy, TILE, TILE);
+
+              wx += TILE;
+            }
+          }
+        }
+      }
+
+      // tilled soil background (iterate farms only; avoids scanning every visible tile)
+      for(let cy=cy0; cy<=cy1; cy++){
+        for(let cx=cx0; cx<=cx1; cx++){
+          const ch = getChunk(S, cx, cy);
+          if (!ch.farms || ch.farms.size===0) continue;
+
+          const baseX = cx * CHUNK;
+          const baseY = cy * CHUNK;
+
+          for(const [lk, f] of ch.farms){
+            if (!f || !f.tilled) continue;
+            const comma = lk.indexOf(',');
+            const lx = (comma>=0) ? (lk.slice(0, comma) | 0) : 0;
+            const ly = (comma>=0) ? (lk.slice(comma+1) | 0) : 0;
+            const tx = baseX + lx;
+            const ty = baseY + ly;
+            if (tx < left || tx >= right || ty < top || ty >= bottom) continue;
+
+            const wx = tx*TILE - camX;
+            const wy = ty*TILE - camY;
+
+            ctx.globalAlpha = 0.85;
+            ctx.fillStyle = 'rgba(138,106,58,.65)';
+            ctx.fillRect(wx+2, wy+10, TILE-4, 4);
+            ctx.fillStyle = 'rgba(107,79,42,.55)';
+            ctx.fillRect(wx+2, wy+12, TILE-4, 2);
+
+            // watered sparkle
+            if (f.watered || S.time.raining){
+              ctx.fillStyle = 'rgba(95,159,182,.45)';
+              ctx.fillRect(wx+3, wy+11, 2, 1);
+              ctx.fillRect(wx+11, wy+12, 1, 1);
+            }
+            ctx.globalAlpha = 1;
+          }
+        }
+      }
+
+      // cottage sprite
+      const cottagePx = -24 - camX + TILE/2;
+      const cottagePy = -64 - camY + TILE/2;
+      ctx.drawImage(SPR.cottage, Math.floor(cottagePx), Math.floor(cottagePy));
+
+      // placed objects
+      drawPlaced(S, camX,camY, left,top,right,bottom);
+
+      // crops (iterate farms only)
+      for(let cy=cy0; cy<=cy1; cy++){
+        for(let cx=cx0; cx<=cx1; cx++){
+          const ch = getChunk(S, cx, cy);
+          if (!ch.farms || ch.farms.size===0) continue;
+
+          const baseX = cx * CHUNK;
+          const baseY = cy * CHUNK;
+
+          for(const [lk, f] of ch.farms){
+            if (!f || !f.tilled || !f.crop) continue;
+            const comma = lk.indexOf(',');
+            const lx = (comma>=0) ? (lk.slice(0, comma) | 0) : 0;
+            const ly = (comma>=0) ? (lk.slice(comma+1) | 0) : 0;
+            const tx = baseX + lx;
+            const ty = baseY + ly;
+            if (tx < left || tx >= right || ty < top || ty >= bottom) continue;
+
+            const wx = tx*TILE - camX;
+            const wy = ty*TILE - camY;
+
+            const crop = f.crop;
+            const stage = clamp(f.stage|0, 0, 3);
+            const spr = SPR.crops[crop] ? SPR.crops[crop][stage] : null;
+            if (spr) ctx.drawImage(spr, wx, wy);
+          }
+        }
+      }
+
+      // entities (iterate ents only; stable tile-order via sort)
+      _visEnts.length = 0;
+      for(let cy=cy0; cy<=cy1; cy++){
+        for(let cx=cx0; cx<=cx1; cx++){
+          const ch = getChunk(S, cx, cy);
+          if (!ch.ents || ch.ents.size===0) continue;
+
+          const baseX = cx * CHUNK;
+          const baseY = cy * CHUNK;
+
+          for (const [lk, ent] of ch.ents){
+            const comma = lk.indexOf(',');
+            const lx = (comma>=0) ? (lk.slice(0, comma) | 0) : 0;
+            const ly = (comma>=0) ? (lk.slice(comma+1) | 0) : 0;
+            const tx = baseX + lx;
+            const ty = baseY + ly;
+            if (tx < left || tx >= right || ty < top || ty >= bottom) continue;
+            if (isCottageTile(tx,ty)) continue;
+            _visEnts.push({tx,ty,ent});
+          }
+        }
+      }
+      _visEnts.sort((a,b)=> (a.ty-b.ty) || (a.tx-b.tx));
+
+      for (const E of _visEnts){
+        const ent = E.ent;
+        const wx = E.tx*TILE - camX;
+        const wy = E.ty*TILE - camY;
+
+        const spr = SPR.ents[ent.type];
+        if (spr){
+          ctx.drawImage(spr, wx, wy);
+          // rare sparkle
+          if (ent.type==='glowcap' || ent.type.startsWith('ore_') || ent.type==='ice'){
+            ctx.globalAlpha = 0.5;
+            ctx.fillStyle = 'rgba(255,255,255,.7)';
+            ctx.fillRect(wx+12, wy+3, 1,1);
+            ctx.fillRect(wx+3, wy+6, 1,1);
+            ctx.globalAlpha = 1;
+          }
+        }
+      }
+
+      // POIs (iterate chunks; avoids per-tile chunk lookups)
+      for(let cy=cy0; cy<=cy1; cy++){
+        for(let cx=cx0; cx<=cx1; cx++){
+          const ch = getChunk(S, cx, cy);
+          if (!ch.poi || ch.poi.used) continue;
+
+          const tx = cx*CHUNK + ch.poi.lx;
+          const ty = cy*CHUNK + ch.poi.ly;
+          if (tx < left || tx >= right || ty < top || ty >= bottom) continue;
+
+          const wx = tx*TILE - camX;
+          const wy = ty*TILE - camY;
+          const icon = poiIcon(ch.poi.type);
+
+          ctx.globalAlpha = 0.95;
+          ctx.fillStyle = 'rgba(255,255,255,.65)';
+          ctx.fillRect(wx+2,wy+2,12,12);
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#2b2a26';
+          ctx.font = '12px system-ui';
+          ctx.fillText(icon, wx+4, wy+13);
+        }
+      }
+    }
+
+    function drawPlaced(S, camX,camY, left,top,right,bottom){
+      // Draw placed objects by chunk (avoids scanning every visible tile and calling placedAt repeatedly)
+      const cx0 = Math.floor(left / CHUNK);
+      const cy0 = Math.floor(top / CHUNK);
+      const cx1 = Math.floor((right - 1) / CHUNK);
+      const cy1 = Math.floor((bottom - 1) / CHUNK);
+
+      for(let cy=cy0; cy<=cy1; cy++){
+        for(let cx=cx0; cx<=cx1; cx++){
+          const d = S.deltas[key(cx,cy)];
+          if (!d || !d.placed || d.placed.length===0) continue;
+
+          for(const p of d.placed){
+            if (p.tx < left || p.tx >= right || p.ty < top || p.ty >= bottom) continue;
+            const wx = p.tx*TILE - camX;
+            const wy = p.ty*TILE - camY;
+
+            if (p.type === 'campfire'){
+              // tiny flame pixels
+              ctx.fillStyle = 'rgba(255,255,255,.55)';
+              ctx.fillRect(wx+3, wy+11, 10, 3);
+              ctx.fillStyle = '#6b4f2a';
+              ctx.fillRect(wx+4, wy+12, 8, 2);
+              ctx.fillStyle = '#c77a2b';
+              ctx.fillRect(wx+7, wy+8, 2, 4);
+              ctx.fillStyle = '#f1dc9b';
+              ctx.fillRect(wx+8, wy+9, 1, 2);
+            }
+          }
+        }
+      }
+    }
+
+    function poiIcon(type){
+      if (type==='picnic') return '🥪';
+      if (type==='greenhouse') return '🏚️';
+      if (type==='fairy') return '🧚';
+      if (type==='well') return '🪣';
+      if (type==='merchant') return '🛒';
+      if (type==='shrine') return '⛩️';
+      if (type==='archway') return '🪨';
+      return '✨';
+    }
+
+    function drawPlayer(S, camX,camY){
+      const P = S.player;
+      const wx = Math.floor(P.x - camX);
+      let wy = Math.floor(P.y - camY);
+      // tiny cozy bob (purely visual)
+      const moving = (Math.hypot(P.vx||0, P.vy||0) > 10);
+      const t = performance.now()/1000;
+      const cuteBob = moving ? Math.sin(t*10)*1 : Math.sin(t*2)*0.5;
+      wy += cuteBob|0;
+      const spr = SPR.fran[P.dir] || SPR.fran[0];
+      ctx.drawImage(spr, wx, wy);
+    }
+
+    function drawLighting(S){
+      // day/night overlay
+      const nightAlpha = getNightAlpha(S);
+
+      if (nightAlpha > 0.01){
+        ctx.globalAlpha = nightAlpha;
+        ctx.fillStyle = 'rgb(24, 30, 56)';
+        ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+        ctx.globalAlpha = 1;
+      }
+
+      // a tiny mist at dawn/dusk for softness
+      const t = S.time.t01;
+      const mist = clamp(1 - Math.abs(t-0.16)/0.10, 0, 1) * 0.06
+                 + clamp(1 - Math.abs(t-0.86)/0.10, 0, 1) * 0.08;
+      if (mist > 0.01){
+        ctx.globalAlpha = mist;
+        ctx.fillStyle = 'rgb(255, 245, 235)';
+        ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+        ctx.globalAlpha = 1;
+      }
+
+      // cloudy / rainy soft overlay
+      const cloud = (S.time.cloudiness ?? 0);
+      if (cloud > 0.02){
+        ctx.globalAlpha = cloud * 0.07;
+        ctx.fillStyle = 'rgb(95, 110, 125)';
+        ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+        ctx.globalAlpha = 1;
+      }
+
+      // rain overlay a touch deeper
+      const rainI = (S.time.rainIntensity ?? 0);
+      if (rainI > 0.05){
+        ctx.globalAlpha = 0.06 + rainI*0.06;
+        ctx.fillStyle = 'rgb(55, 75, 85)';
+        ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+        ctx.globalAlpha = 1;
+      }
+
+      return nightAlpha;
+    }
+
+    
+// -----------------------------
+// Phase 2: Interior rendering
+// -----------------------------
+function drawInterior(S, camX, camY){
+  const I = S.interior;
+  // floor
+  for(let ty=0; ty<I.h; ty++){
+    for(let tx=0; tx<I.w; tx++){
+      const wx = tx*TILE - camX;
+      const wy = ty*TILE - camY;
+      // walls
+      const isWall = (tx===0 || ty===0 || tx===I.w-1 || ty===I.h-1);
+      if (isWall){
+        ctx.fillStyle = 'rgba(107,79,42,0.9)'; // wood wall
+        ctx.fillRect(wx, wy, TILE, TILE);
+      } else {
+        ctx.fillStyle = ( (tx+ty)&1 ) ? 'rgba(243,234,214,0.95)' : 'rgba(247,241,227,0.95)';
+        ctx.fillRect(wx, wy, TILE, TILE);
+      }
+      // simple wall trim
+      if (isWall){
+        ctx.fillStyle = 'rgba(0,0,0,0.12)';
+        ctx.fillRect(wx, wy, TILE, TILE);
+      }
+    }
+  }
+
+  // doorway marker
+  const door = I.door;
+  {
+    const wx = door.tx*TILE - camX;
+    const wy = door.ty*TILE - camY;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(wx+TILE*0.2, wy+TILE*0.2, TILE*0.6, TILE*0.6);
+  }
+
+  // bed
+  {
+    const b = I.bed;
+    const wx = b.tx*TILE - camX;
+    const wy = b.ty*TILE - camY;
+    ctx.fillStyle = 'rgba(216,138,165,0.95)';
+    ctx.fillRect(wx+4, wy+8, TILE-8, TILE-12);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillRect(wx+8, wy+10, TILE-16, TILE*0.35);
+  }
+
+  // chest
+  {
+    const c = I.chest;
+    const wx = c.tx*TILE - camX;
+    const wy = c.ty*TILE - camY;
+    ctx.fillStyle = 'rgba(138,106,58,0.95)';
+    ctx.fillRect(wx+6, wy+10, TILE-12, TILE-14);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(wx+6, wy+TILE*0.55, TILE-12, 3);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillRect(wx+TILE*0.45, wy+TILE*0.6, 4, 6);
+  }
+
+  // cozy label
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillRect(-camX, -camY, I.w*TILE, TILE*0.7);
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = `${12/zoom}px ui-sans-serif, system-ui`;
+  ctx.fillText('Fran\'s Cottage', (-camX)+10, (-camY)+16);
+}
+
+function drawInteractHighlight(S, camX,camY){
+      const t = targetTile(S);
+      const wx = t.tx*TILE - camX;
+      const wy = t.ty*TILE - camY;
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = 'rgba(255,255,255,.65)';
+      ctx.lineWidth = 1 / zoom;
+      ctx.strokeRect(wx, wy, TILE, TILE);
+      ctx.globalAlpha = 1;
+    }
+
+    // -----------------------------
+    // UI Rendering
+    // -----------------------------
+    function hearts(n, max){
+      const full = Math.round(clamp(n,0,max));
+      const out=[];
+      for(let i=0;i<max;i++){
+        out.push(i<full ? '❤️' : '🤍');
+      }
+      return out.join('');
+    }
+
+    function updateHUD(S){
+      const P = S.player;
+      const stats = baseStats(P);
+
+      // Clamp vitals to max
+      P.health = clamp(P.health, 0, stats.maxHealth);
+      P.stamina = clamp(P.stamina, 0, stats.maxStamina);
+      P.hunger = clamp(P.hunger, 0, 100);
+      P.cold = clamp(P.cold, 0, 100);
+
+      // Status chips
+      statusRow.innerHTML = `
+        <div class="statChip"><span class="icon">❤️</span><span><b>${Math.round(P.health)}</b>/${Math.round(stats.maxHealth)}</span></div>
+        <div class="statChip"><span class="icon">🍃</span><span><b>${Math.round(P.stamina)}</b>/${Math.round(stats.maxStamina)}</span></div>
+        <div class="statChip"><span class="icon">🍞</span><span><b>${Math.round(P.hunger)}</b>/100</span></div>
+        <div class="statChip"><span class="icon">❄️</span><span><b>${Math.round(P.cold)}</b>/100</span></div>
+        <div class="statChip"><span class="icon">🪙</span><span><b>${P.coins}</b></span></div>
+      `;
+
+      // Day line
+      dayLine.textContent = `Day ${S.time.day} • ${SEASONS[S.time.season]} • ${fmtTime(S.time.t01)}`;
+      const w = S.time.weather || (S.time.raining ? 'rainy' : 'sunny');
+      const icon = (w==='sunny') ? '☀️' : (w==='cloudy' ? '☁️' : '☔');
+      weatherLine.textContent = icon + ' ' + (S.time.weatherText || w);
+
+      // Update pause menu weather if open
+      // Biome line
+      const b = tileBiomeKey(S, Math.floor(P.x/TILE), Math.floor(P.y/TILE));
+      biomeLine.textContent = BIOMES[b].name;
+      hintLine.textContent = BIOMES[b].hint;
+
+      // XP bar
+      const need = needOverall(P.levels.overall);
+      const pct = clamp(P.levels.xp / need, 0, 1);
+      xpFill.style.width = (pct*100).toFixed(1) + '%';
+      xpText.textContent = `Lv ${P.levels.overall} • ${P.levels.xp} / ${need}`;
+
+      // Hotbar is updated in the main update loop (keeps tool highlight responsive).
+
+      // Hint near cottage for sleep
+      const {tx,ty} = playerTile(S);
+      const door = cottageDoorTile();
+      if (Math.abs(tx-door.tx)+Math.abs(ty-door.ty) <= 2){
+        hintText.innerHTML = '<b>Home sweet cottage.</b> Press <span class="kbd">Space</span> to sleep. Your day gently advances.';
+      }
+    }
+
+    function renderHotbar(S){
+      const P = S.player;
+      if (!hotbarEl.dataset.built){
+        hotbarEl.dataset.built = '1';
+        hotbarEl.innerHTML = '';
+        for(let i=1;i<=5;i++){
+          const div = document.createElement('div');
+          div.className = 'slot';
+          div.id = 'slot'+i;
+          div.innerHTML = `<small>${i}</small><span>${TOOL[i].icon}</span>`;
+          div.onclick = ()=>{ setToolSafe(state, i); };
+          hotbarEl.appendChild(div);
+        }
+      }
+      for(let i=1;i<=5;i++){
+        const s = el('slot'+i);
+        if (!s) continue;
+        s.classList.toggle('active', P.tool===i);
+        s.classList.toggle('locked', !toolUnlocked(P, i));
+      }
+    }
+
+    // -----------------------------
+    // Modals content
+    // -----------------------------
+    function showModal(m){ m.classList.add('show'); }
+    function hideModal(m){ m.classList.remove('show'); }
+    function anyModalOpen(){
+      return [modalInventory,modalCraft,modalSkills,modalJournal,modalMap,modalPause].some(m => m.classList.contains('show'));
+    }
+    function closeAll(){
+      [modalInventory,modalCraft,modalSkills,modalJournal,modalMap,modalPause].forEach(hideModal);
+      // Reset temporary UI modes
+      state.ui = state.ui || {};
+      state.ui.invMode = 'satchel';
+      state.ui.chestTab = 'satchel';
+    }
+
+    
+function openChestUI(S){
+  // Only open if we're indoors and near chest (interact already checks)
+  S.home = S.home || { chest:{}, return:null };
+  S.ui = S.ui || {};
+  S.ui.invMode = 'chest';
+  S.ui.chestTab = S.ui.chestTab || 'satchel';
+  toggleModal(modalInventory, () => rebuildInventoryUI(S));
+}
+
+function rebuildChestUI(S){
+  const P = S.player;
+  S.home = S.home || { chest:{}, return:null };
+  const chest = S.home.chest || (S.home.chest = {});
+  S.ui = S.ui || {};
+  const tab = S.ui.chestTab || 'satchel';
+
+  // Header text
+  const h2 = modalInventory.querySelector('h2');
+  const p = modalInventory.querySelector('.modalHeader p');
+  if (h2) h2.textContent = 'Cottage Chest';
+  if (p) p.textContent = 'Store supplies for tomorrow. Switch tabs to move items between your satchel and your chest.';
+
+  moneyPill.textContent = `🪙 ${P.coins} coins`;
+  invInfo.innerHTML = '';
+
+  // Tabs
+  invList.innerHTML = '';
+  const tabs = document.createElement('div');
+  tabs.style.display = 'flex';
+  tabs.style.gap = '8px';
+  tabs.style.marginBottom = '10px';
+
+  const mkTab = (id,label) => {
+    const b = document.createElement('button');
+    b.className = 'btn ' + (tab===id ? 'primary' : '');
+    b.textContent = label;
+    b.onclick = () => { S.ui.chestTab = id; rebuildInventoryUI(S); };
+    return b;
+  };
+  tabs.appendChild(mkTab('satchel','Satchel'));
+  tabs.appendChild(mkTab('chest','Chest'));
+  invList.appendChild(tabs);
+
+  const list = document.createElement('div');
+  list.className = 'list';
+  list.style.gap = '10px';
+  list.style.display = 'grid';
+  list.style.gridTemplateColumns = '1fr';
+  invList.appendChild(list);
+
+  function renderRows(sourceObj, mode){
+    const ids = Object.keys(sourceObj).filter(k=>sourceObj[k]>0).sort((a,b)=> (ITEMS[a]?.name||a).localeCompare(ITEMS[b]?.name||b));
+    if (ids.length===0){
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `<div><b>(empty)</b><div style="opacity:.85; font-size:13px;">Nothing here yet.</div></div>`;
+      list.appendChild(row);
+      return;
+    }
+    for(const id of ids){
+      const it = ITEMS[id] || {name:id, icon:'📦', desc:''};
+      const count = sourceObj[id] || 0;
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `<div><b>${it.icon} ${it.name}</b><div style="opacity:.85; font-size:13px;">x${count}</div></div>`;
+      const right = document.createElement('div');
+      right.style.display='flex';
+      right.style.gap='8px';
+      right.style.alignItems='center';
+
+      const btnOne = document.createElement('button');
+      btnOne.className='btn';
+      btnOne.textContent = (mode==='store') ? 'Store' : 'Take';
+      btnOne.onclick = () => {
+        if (mode==='store'){
+          if (invCount(S,id) <= 0) return;
+          invAdd(S,id,-1);
+          chest[id] = (chest[id]||0)+1;
+        } else {
+          if ((chest[id]||0) <= 0) return;
+          chest[id] -= 1;
+          if (chest[id] <= 0) delete chest[id];
+          invAdd(S,id,1);
+        }
+        rebuildInventoryUI(S);
+      };
+
+      const btnAll = document.createElement('button');
+      btnAll.className='btn';
+      btnAll.textContent = (mode==='store') ? 'All' : 'All';
+      btnAll.onclick = () => {
+        if (mode==='store'){
+          const n = invCount(S,id);
+          if (n<=0) return;
+          invAdd(S,id,-n);
+          chest[id] = (chest[id]||0)+n;
+        } else {
+          const n = chest[id]||0;
+          if (n<=0) return;
+          delete chest[id];
+          invAdd(S,id,n);
+        }
+        rebuildInventoryUI(S);
+      };
+
+      const btnInfo = document.createElement('button');
+      btnInfo.className='btn';
+      btnInfo.textContent='Info';
+      btnInfo.onclick = () => {
+        invInfo.innerHTML = `<b>${it.icon} ${it.name}</b><br><span style="opacity:.9">${it.desc||''}</span>`;
+      };
+
+      right.appendChild(btnInfo);
+      right.appendChild(btnOne);
+      right.appendChild(btnAll);
+      row.appendChild(right);
+      list.appendChild(row);
+    }
+  }
+
+  if (tab === 'satchel'){
+    renderRows(S.inv, 'store');
+    invInfo.innerHTML = `<b>Satchel → Chest</b><br><span style="opacity:.9">Store items to free space.</span>`;
+  } else {
+    renderRows(chest, 'take');
+    invInfo.innerHTML = `<b>Chest → Satchel</b><br><span style="opacity:.9">Take items back with you.</span>`;
+  }
+}
+
+function rebuildInventoryUI(S){
+      if (state.ui && state.ui.invMode === 'chest'){
+        return rebuildChestUI(S);
+      }
+      const P = S.player;
+      // restore header for normal inventory
+      const h2 = modalInventory.querySelector('h2');
+      const p = modalInventory.querySelector('.modalHeader p');
+      if (h2) h2.textContent = 'Satchel Inventory';
+      if (p) p.textContent = 'Click seeds to set your active seed. Click food to eat. Your cottage-core life is built from little daily choices.';
+      invList.innerHTML = '';
+      moneyPill.textContent = `🪙 ${P.coins} coins`;
+
+      const ids = Object.keys(S.inv).sort((a,b)=> (ITEMS[a]?.name||a).localeCompare(ITEMS[b]?.name||b));
+      if (ids.length === 0){
+        invList.innerHTML = `<div class="row"><div><b>(empty)</b><div style="opacity:.85; font-size:13px;">Go explore—your satchel loves treasures.</div></div></div>`;
+      }
+
+      for(const id of ids){
+        const it = ITEMS[id] || {name:id, icon:'📦', desc:''};
+        const row = document.createElement('div');
+        row.className='row';
+        const count = invCount(S,id);
+        row.innerHTML = `<div>
+          <b>${it.icon} ${it.name}</b>
+          <div style="opacity:.85; font-size:13px;">x${count}</div>
+        </div>`;
+        const right = document.createElement('div');
+        right.style.display='flex';
+        right.style.gap='8px';
+        right.style.alignItems='center';
+
+        const btnInfo = document.createElement('button');
+        btnInfo.className='btn';
+        btnInfo.textContent='Info';
+        btnInfo.onclick = () => {
+          invInfo.innerHTML = `<b>${it.icon} ${it.name}</b><br/><span style="opacity:.9;">${it.desc || ''}</span>`;
+        };
+        right.appendChild(btnInfo);
+
+        // Seed select
+        if (it.seedOf){
+          const btn = document.createElement('button');
+          btn.className='btn';
+          btn.textContent = (P.activeSeed===id) ? 'Active' : 'Set Seed';
+          btn.disabled = (P.activeSeed===id);
+          btn.onclick = () => {
+            P.activeSeed = id;
+            toast(`🌱 Active seed: ${it.name}`);
+            rebuildInventoryUI(S);
+          };
+          right.appendChild(btn);
+        }
+
+        // Eat
+        if (it.food){
+          const btn = document.createElement('button');
+          btn.className='btn';
+          btn.textContent='Eat';
+          btn.onclick = () => {
+            eatItem(S,id);
+            rebuildInventoryUI(S);
+          };
+          right.appendChild(btn);
+        }
+
+        // Equip
+        if (it.equip){
+          const btn = document.createElement('button');
+          btn.className='btn';
+          const equipped = (P.equip[it.equip.slot] === id);
+          btn.textContent = equipped ? 'Unequip' : 'Equip';
+          btn.onclick = () => {
+            if (equipped) P.equip[it.equip.slot] = null;
+            else P.equip[it.equip.slot] = id;
+            toast(equipped ? '👒 Unequipped.' : '👒 Equipped.');
+            rebuildInventoryUI(S);
+          };
+          right.appendChild(btn);
+        }
+
+        // Place
+        if (it.placeable){
+          const btn = document.createElement('button');
+          btn.className='btn';
+          btn.textContent='Place';
+          btn.onclick = () => {
+            // place at target tile if empty
+            const t = targetTile(S);
+            if (isSolid(S,t.tx,t.ty)){ toast('🧺 No space to place it there.'); return; }
+            invAdd(S,id,-1);
+            addPlaced(S,t.tx,t.ty,id);
+            toast(`🏕️ Placed ${it.name}.`);
+            awardXP(S,'crafting', 6);
+            rebuildInventoryUI(S);
+          };
+          right.appendChild(btn);
+        }
+
+        row.appendChild(right);
+        invList.appendChild(row);
+      }
+
+      const active = P.activeSeed ? ITEMS[P.activeSeed] : null;
+      activeSeedLine.textContent = active ? `${active.icon} ${active.name}` : '🌱 None';
+    }
+
+    function eatItem(S, id){
+      const it = ITEMS[id];
+      if (!it || !it.food) return;
+      if (invCount(S,id) <= 0) return;
+
+      invAdd(S,id,-1);
+      const P = S.player;
+      P.hunger = clamp(P.hunger + (it.food.hunger||0), 0, 100);
+      P.stamina = clamp(P.stamina + (it.food.stamina||0), 0, baseStats(P).maxStamina);
+      if (it.buff) addBuff(S, it.buff);
+      awardXP(S,'cooking', 4);
+      toast(`${it.icon} Ate ${it.name}.`);
+    }
+
+    function rebuildCraftUI(S){
+      craftList.innerHTML = '';
+      for(const r of RECIPES){
+        const row = document.createElement('div');
+        row.className='row';
+
+        const reqStr = Object.entries(r.req||{}).map(([id,n])=> `${ITEMS[id]?.icon||'📦'} ${ITEMS[id]?.name||id} x${n}`).join(' · ');
+        row.innerHTML = `<div>
+          <b>${r.icon} ${r.name}</b>
+          <div style="opacity:.85; font-size:13px; margin-top:2px;">${reqStr || '—'}</div>
+          <div style="opacity:.78; font-size:12.5px; margin-top:4px;">${r.note || ''}</div>
+        </div>`;
+
+        const btn = document.createElement('button');
+        btn.className='btn';
+        const okReq = invHas(S, r.req||{});
+        const okAvail = r.available ? r.available(S) : true;
+        btn.textContent = (!okAvail && r.lockText) ? r.lockText : 'Make';
+        btn.disabled = !(okReq && okAvail);
+        btn.onclick = () => {
+          if (!invHas(S, r.req||{})) return;
+          invSpend(S, r.req||{});
+          for(const [id,n] of Object.entries(r.out||{})){
+            invAdd(S,id,n);
+          }
+          if (r.apply) r.apply(S);
+
+          // XP
+          if (r.xp){
+            for(const [sk,amt] of Object.entries(r.xp)){
+              awardXP(S, sk, amt);
+            }
+          }
+          toast('🧺 Crafted with care.');
+          rebuildCraftUI(S);
+        };
+        row.appendChild(btn);
+        craftList.appendChild(row);
+      }
+    }
+
+    function rebuildSkillsUI(S){
+      const P = S.player;
+      lvlLine.textContent = `Overall Level ${P.levels.overall}`;
+      pointsLine.textContent = `Stat Points: ${P.levels.statPoints}`;
+
+      const perks = [];
+      if (P.perks.greenThumb) perks.push('Green Thumb');
+      if (P.perks.berryKeen) perks.push('Berry Keen');
+      if (P.perks.softStrike) perks.push('Soft Strike');
+      if (P.perks.trailblazer) perks.push('Trailblazer');
+      if (P.perks.heartyMeals) perks.push('Hearty Meals');
+      perkPill.textContent = `🌿 Perks: ${perks.length ? perks.join(', ') : 'none yet'}`;
+
+      // Stats list
+      const statsMeta = [
+        {id:'maxHealth', label:'Max Health', icon:'❤️', desc:'+1 HP per point', step:1},
+        {id:'maxStamina', label:'Max Stamina', icon:'🍃', desc:'+5 stamina per point', step:1},
+        {id:'moveSpeed', label:'Move Speed', icon:'👣', desc:'+3 speed per point', step:1},
+        {id:'toolEff', label:'Tool Efficiency', icon:'🛠️', desc:'+0.06 efficiency per point', step:1},
+        {id:'harvestYield', label:'Harvest Yield', icon:'🌾', desc:'+2% bonus chance per point', step:1},
+        {id:'luck', label:'Luck', icon:'✨', desc:'+0.4 luck per point', step:1},
+        {id:'warmth', label:'Warmth', icon:'🔥', desc:'+0.6 warmth per point', step:1},
+        {id:'charm', label:'Charm', icon:'💬', desc:'+0.4 charm per point', step:1},
+      ];
+
+      statList.innerHTML = '';
+      for(const s of statsMeta){
+        const row = document.createElement('div');
+        row.className='row';
+        const val = P.alloc[s.id] | 0;
+        row.innerHTML = `<div>
+          <b>${s.icon} ${s.label}</b>
+          <div style="opacity:.85; font-size:13px;">${s.desc}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="pill">Allocated: <b>${val}</b></span>
+        </div>`;
+        const btn = document.createElement('button');
+        btn.className='btn';
+        btn.textContent = '+';
+        btn.disabled = (P.levels.statPoints <= 0);
+        btn.onclick = () => {
+          if (P.levels.statPoints <= 0) return;
+          P.levels.statPoints -= 1;
+          P.alloc[s.id] = (P.alloc[s.id] | 0) + 1;
+          toast(`${s.icon} Increased ${s.label}.`);
+          rebuildSkillsUI(S);
+        };
+        row.lastElementChild.appendChild(btn);
+        statList.appendChild(row);
+      }
+
+      // Skill lines
+      skillList.innerHTML='';
+      const order = ['gardening','foraging','mining','crafting','cooking','exploration'];
+      for(const id of order){
+        const sk = P.skills[id];
+        const need = needSkill(sk.level);
+        const pct = clamp(sk.xp / need, 0, 1);
+        const row = document.createElement('div');
+        row.className='row';
+        row.innerHTML = `<div>
+          <b>📘 ${capitalize(id)} — Lv ${sk.level}</b>
+          <div style="opacity:.85; font-size:13px;">${sk.xp} / ${need}</div>
+        </div>
+        <div class="bar" style="width:180px;"><i style="width:${(pct*100).toFixed(1)}%"></i></div>`;
+        skillList.appendChild(row);
+      }
+    }
+
+    function rebuildJournalUI(S){
+      bioList.innerHTML='';
+      for(const b of Array.from(S.discoveredBiomes).sort((a,b)=>a-b)){
+        const row = document.createElement('div');
+        row.className='row';
+        row.innerHTML = `<div><b>🗺️ ${BIOMES[b].name}</b><div style="opacity:.85; font-size:13px;">${BIOMES[b].hint}</div></div>`;
+        bioList.appendChild(row);
+      }
+      if (bioList.children.length===0){
+        bioList.innerHTML = `<div class="row"><div><b>No biomes yet</b><div style="opacity:.85; font-size:13px;">Step outside the clearing!</div></div></div>`;
+      }
+
+      resList.innerHTML='';
+      const ids = Object.keys(S.inv).sort((a,b)=> (ITEMS[a]?.name||a).localeCompare(ITEMS[b]?.name||b));
+      for(const id of ids){
+        const it = ITEMS[id] || {name:id, icon:'📦'};
+        const row = document.createElement('div');
+        row.className='row';
+        row.innerHTML = `<div><b>${it.icon} ${it.name}</b><div style="opacity:.85; font-size:13px;">x${invCount(S,id)}</div></div>`;
+        resList.appendChild(row);
+      }
+      if (resList.children.length===0){
+        resList.innerHTML = `<div class="row"><div><b>No resources yet</b><div style="opacity:.85; font-size:13px;">Forage flowers and chop a tree.</div></div></div>`;
+      }
+    }
+
+    function rebuildMapUI(S){
+      // Map shows visited chunks around player; color by biome
+      const P = S.player;
+      const {tx,ty} = playerTile(S);
+      const {cx,cy} = tileToChunk(tx,ty);
+
+      // Determine bounds
+      const span = 20; // chunks around player
+      const minx = cx - span, maxx = cx + span;
+      const miny = cy - span, maxy = cy + span;
+
+      const w = mapCanvas.width;
+      const h = mapCanvas.height;
+      mapCtx.clearRect(0,0,w,h);
+
+      // parchment background
+      mapCtx.fillStyle = 'rgba(247,241,227,.9)';
+      mapCtx.fillRect(0,0,w,h);
+
+      const cell = Math.floor(Math.min(w/(2*span+1), h/(2*span+1)));
+      const ox = Math.floor(w/2 - cell/2);
+      const oy = Math.floor(h/2 - cell/2);
+
+      // draw visited chunks
+      for(let y=miny; y<=maxy; y++){
+        for(let x=minx; x<=maxx; x++){
+          const k = key(x,y);
+          if (!S.visitedChunks.has(k)) continue;
+
+          // sample biome from center tile of chunk
+          const sx = x*CHUNK + Math.floor(CHUNK/2);
+          const sy = y*CHUNK + Math.floor(CHUNK/2);
+          const b = biomeAt(sx,sy,S.seed);
+          const col = BIOMES[b].ground;
+
+          const px = ox + (x-cx)*cell;
+          const py = oy + (y-cy)*cell;
+
+          mapCtx.fillStyle = col;
+          mapCtx.globalAlpha = 0.8;
+          mapCtx.fillRect(px, py, cell, cell);
+          mapCtx.globalAlpha = 1;
+        }
+
+    function rebuildPauseUI(S){
+      if (!pauseWeatherLine) return;
+      const w = S.time.weather || (S.time.raining ? 'rainy' : 'sunny');
+      const icon = (w==='sunny') ? '☀️' : (w==='cloudy' ? '☁️' : '☔');
+      pauseWeatherLine.textContent = icon + ' ' + (S.time.weatherText || w);
+    }
+
+      }
+
+      // draw archways
+      for(const a of S.knownArchways){
+        const ac = tileToChunk(a.tx,a.ty);
+        const px = ox + (ac.cx-cx)*cell;
+        const py = oy + (ac.cy-cy)*cell;
+        mapCtx.fillStyle = 'rgba(255,255,255,.9)';
+        mapCtx.fillRect(px+cell*0.25, py+cell*0.25, cell*0.5, cell*0.5);
+      }
+
+      // draw player
+      mapCtx.fillStyle = '#2b2a26';
+      mapCtx.fillRect(ox+cell*0.35, oy+cell*0.35, cell*0.3, cell*0.3);
+
+      // doodled border
+      mapCtx.strokeStyle = 'rgba(107,79,42,.55)';
+      mapCtx.lineWidth = 2;
+      mapCtx.strokeRect(8,8,w-16,h-16);
+    }
+
+    // -----------------------------
+    // Toasts
+    // -----------------------------
+    const toastQueue = [];
+    function toast(msg){
+      toastQueue.push({ msg, t: 2.6 });
+    }
+
+    function tickToasts(dt){
+      // render toasts
+      for(let i=toastQueue.length-1; i>=0; i--){
+        toastQueue[i].t -= dt;
+        if (toastQueue[i].t <= 0){
+          toastQueue.splice(i,1);
+        }
+      }
+      // draw
+      toastsEl.innerHTML = '';
+      const last = toastQueue.slice(-4);
+      for(const t of last){
+        const d = document.createElement('div');
+        d.className='toast';
+        d.textContent = t.msg;
+        toastsEl.appendChild(d);
+      }
+    }
+
+    // -----------------------------
+    // Input
+    // -----------------------------
+    const keys = new Map();
+    let pressE = false;
+    let pressSpace = false;
+
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+
+      keys.set(e.key.toLowerCase(), true);
+
+      const k = e.key.toLowerCase();
+
+      // Hotbar tools
+      if (k>='1' && k<='5'){
+        setToolSafe(state, parseInt(k,10));
+      }
+
+      // Modals
+      if (k === 'tab'){
+        e.preventDefault();
+        toggleModal(modalInventory, () => rebuildInventoryUI(state));
+      }
+      if (k === 'c'){
+        toggleModal(modalCraft, () => rebuildCraftUI(state));
+      }
+      if (k === 'k'){
+        toggleModal(modalSkills, () => rebuildSkillsUI(state));
+      }
+      if (k === 'j'){
+        toggleModal(modalJournal, () => rebuildJournalUI(state));
+      }
+      if (k === 'm'){
+        toggleModal(modalMap, () => rebuildMapUI(state));
+      }
+      if (k === 'escape'){
+        if (anyModalOpen()) closeAll();
+        else toggleModal(modalPause, () => rebuildPauseUI(state));
+      }
+      if (k === 'p'){
+        toggleModal(modalPause, () => rebuildPauseUI(state));
+      }
+
+      // Zoom controls (snug camera): [ / ] or - / =
+      if (k === '[' || k === '-' || k === '_'){
+        // zoom out
+        setZoomTarget(zoomTarget - 1);
+      }
+      if (k === ']' || k === '=' || k === '+'){
+        // zoom in
+        setZoomTarget(zoomTarget + 1);
+      }
+
+      if (k === 'e'){
+        pressE = true;
+      }
+      if (k === ' '){
+        pressSpace = true;
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys.set(e.key.toLowerCase(), false);
+    });
+
+    // Mouse wheel zoom (snaps to integer zoom levels for crisp pixels)
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const dir = Math.sign(e.deltaY);
+      if (dir > 0) setZoomTarget(zoomTarget - 1);
+      else if (dir < 0) setZoomTarget(zoomTarget + 1);
+    }, { passive: false });
+
+
+    canvas.addEventListener('pointerdown', (e) => {
+      // left click only; ignore when menus are open
+      if (e.button !== 0) return;
+      if (anyModalOpen()) return;
+      const t = screenToTile(e);
+      setClickInteractTarget(state, t.tx, t.ty);
+    });
+
+
+    function down(k){
+      return !!keys.get(k);
+    }
+
+    // Click-to-walk + auto-interact (Phase 1)
+    function screenToTile(e){
+      const rect = canvas.getBoundingClientRect();
+      const sx = (e.clientX - rect.left) * (CANVAS_W / rect.width);
+      const sy = (e.clientY - rect.top) * (CANVAS_H / rect.height);
+      const wx = cam.x + (sx / zoom);
+      const wy = cam.y + (sy / zoom);
+      return { tx: Math.floor(wx / TILE), ty: Math.floor(wy / TILE) };
+    }
+
+    function faceToward(P, fromTx, fromTy, toTx, toTy){
+      const dx = toTx - fromTx;
+      const dy = toTy - fromTy;
+      if (Math.abs(dx) > Math.abs(dy)) P.dir = (dx < 0) ? 2 : 3;
+      else P.dir = (dy < 0) ? 1 : 0;
+    }
+
+    function setClickInteractTarget(S, tx, ty){
+      const P = S.player;
+      const pt = playerTile(S);
+
+      // if already adjacent, interact immediately
+      if (Math.abs(pt.tx - tx) + Math.abs(pt.ty - ty) === 1){
+        faceToward(P, pt.tx, pt.ty, tx, ty);
+        interact(S, {tx,ty});
+        return;
+      }
+
+      // choose an adjacent tile we can stand on
+      const candidates = [
+        {tx:tx+1, ty},
+        {tx:tx-1, ty},
+        {tx, ty:ty+1},
+        {tx, ty:ty-1},
+      ].filter(c => !isSolid(S, c.tx, c.ty));
+
+      if (!candidates.length){
+        toast("🚫 Can't get close enough.");
+        return;
+      }
+
+      candidates.sort((a,b)=>{
+        const da = Math.abs(a.tx-pt.tx) + Math.abs(a.ty-pt.ty);
+        const db = Math.abs(b.tx-pt.tx) + Math.abs(b.ty-pt.ty);
+        return da - db;
+      });
+
+      S.nav = { kind:'interact', target:{tx,ty}, approach:candidates[0], lastDist: Infinity, stuck: 0 };
+    }
+
+
+    function toggleModal(modal, onOpen){
+      if (modal.classList.contains('show')){
+        hideModal(modal);
+      } else {
+        closeAll();
+        showModal(modal);
+        if (onOpen) onOpen();
+      }
+    }
+
+    // Close buttons
+    document.querySelectorAll('[data-close]').forEach(btn=>{
+      btn.addEventListener('click', () => hideModal(el(btn.dataset.close)));
+    });
+
+    // Pause menu buttons
+    function toggleFullscreen(){
+      const target = el('gameShell');
+      if (!document.fullscreenElement){
+        (target.requestFullscreen || target.webkitRequestFullscreen || target.mozRequestFullScreen || target.msRequestFullscreen)?.call(target);
+      } else {
+        (document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen)?.call(document);
+      }
+    }
+    if (btnFullscreen) btnFullscreen.onclick = toggleFullscreen;
+    if (btnToggleHUD) btnToggleHUD.onclick = ()=> {
+      document.body.classList.toggle('minimalHUD');
+      toast(document.body.classList.contains('minimalHUD') ? '🧺 Minimal HUD' : '🧺 HUD restored');
+    };
+
+
+    if (btnResetGame) btnResetGame.onclick = () => {
+      if (!safeLocalStorage()){
+        toast('⚠️ Storage not available in this browser.');
+        return;
+      }
+      const ok = confirm('Reset to a fresh new game?\n\nThis will overwrite the current save (a backup will be kept).');
+      if (!ok) return;
+      const prev = localStorage.getItem(SAVE_KEY);
+      if (prev) pushBackupRaw(prev);
+      localStorage.removeItem(SAVE_KEY);
+      state = newGame();
+      state.nav = null;
+      toast('🌱 Fresh start. Tools must be crafted!');
+      closeAll();
+    };
+
+    if (btnRestoreBackup) btnRestoreBackup.onclick = () => {
+      if (!safeLocalStorage()){
+        toast('⚠️ Storage not available in this browser.');
+        return;
+      }
+      const backups = loadBackups();
+      if (!backups.length){
+        toast('⏪ No previous saves yet.');
+        return;
+      }
+      const lines = backups.slice(0,8).map((b,i)=> `${i+1}. ${new Date(b.t).toLocaleString()}`).join('\n');
+      const ans = prompt('Load which previous save?\n\n' + lines + '\n\nEnter a number (1-' + Math.min(8,backups.length) + '):', '1');
+      const n = parseInt(ans||'1', 10);
+      const idx = clamp((isNaN(n)?1:n)-1, 0, Math.min(7,backups.length-1));
+      localStorage.setItem(SAVE_KEY, backups[idx].raw);
+      state = loadGame() || newGame();
+      state.nav = null;
+      toast('⏪ Loaded previous save.');
+      closeAll();
+    };
+
+    // Inventory buttons
+    el('btnSave').onclick = ()=> saveGame(state);
+    el('btnExport').onclick = ()=> exportSave(state);
+    el('btnNew').onclick = ()=> { if (confirm('Start a fresh world for Fran?')) { state = newGame(); closeAll(); toast('🌱 A new beginning.'); } };
+    el('fileImport').addEventListener('change', (e)=>{
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      importSave(f, (S)=>{ state = S; closeAll(); });
+    });
+
+    el('btnFastTravel').onclick = ()=> fastTravel(state);
+
+    function fastTravel(S){
+      const P = S.player;
+      if (!S.knownArchways.length){
+        toast('🪨 No archways discovered yet.');
+        return;
+      }
+      const {tx,ty} = playerTile(S);
+      let best=null, bestD=1e9;
+      for(const a of S.knownArchways){
+        const d = Math.hypot(a.tx-tx, a.ty-ty);
+        if (d < bestD){ bestD=d; best=a; }
+      }
+      const cost = 20;
+      if (P.stamina < cost){
+        toast('😮‍💨 Too tired to fast travel.');
+        return;
+      }
+      P.stamina -= cost;
+      P.x = best.tx * TILE;
+      P.y = best.ty * TILE + TILE; // land in front
+      S.time.t01 = clamp(S.time.t01 + 0.08, 0, 0.99);
+      awardXP(S,'exploration', 8);
+      toast('✨ Fast traveled via archway.');
+      rebuildMapUI(S);
+      markDiscovery(S);
+    }
+
+    // -----------------------------
+    // Game loop update
+    // -----------------------------
+    let state = loadGame() || newGame();
+    state.nav = null;
+
+    // Gentle exploration XP: awarded for distance traveled (prevents per-frame XP spikes)
+    let travelAcc = 0;
+
+    // Cozy camera zoom (bigger, snugger visuals)
+    let zoom = 3.0;
+    let zoomTarget = 3.0;
+    const ZOOM_MIN = 2.0;
+    const ZOOM_MAX = 4.0;
+
+    // Smooth follow camera (world pixels)
+    let cam = { x: 0, y: 0 };
+    let camLook = { x: 0, y: 0 }; // smoothed look-ahead direction
+
+    // Cozy screen-space + world-space FX particles
+    const fx = {
+      leaves: [],
+      rain: [],
+      snow: [],
+      fireflies: [],
+      smoke: []
+    };
+    let fxTimers = { leaf:0, rain:0, snow:0, fly:0, smoke:0 };
+
+    let last = performance.now();
+    let autosaveT = 0;
+
+    let hudAccum = 0;
+
+    function update(dt){
+      const S = state;
+      const P = S.player;
+      const stats = baseStats(P);
+
+      // Pause movement if modal open
+      const paused = anyModalOpen();
+
+
+// Phase 2: scene fade transitions
+if (S.transition && S.transition.active){
+  S.transition.t += dt;
+  const half = S.transition.dur / 2;
+  if (!S.transition.swapped && S.transition.t >= half){
+    S.transition.swapped = true;
+    if (typeof S.transition.mid === 'function') S.transition.mid();
+  }
+  if (S.transition.t >= S.transition.dur){
+    S.transition.active = false;
+    if (typeof S.transition.end === 'function') S.transition.end();
+  }
+  // During transitions we freeze input/movement but still move camera/zoom
+  updateCamera(S, dt);
+  return;
+}
+
+
+      // Weather smoothing (clouds/rain fade in/out gently)
+      if (typeof S.time.weather !== 'string'){
+        // migration for older saves
+        S.time.weather = S.time.raining ? 'rainy' : 'sunny';
+      }
+      const wType = S.time.weather;
+      const targetCloud = (wType === 'sunny') ? 0.0 : (wType === 'cloudy') ? 0.55 : 0.85;
+      const targetRain  = (wType === 'rainy') ? 1.0 : 0.0;
+      const wLerp = 1 - Math.pow(0.001, dt * 1.2);
+      S.time.cloudiness = (S.time.cloudiness ?? 0) + (targetCloud - (S.time.cloudiness ?? 0)) * wLerp;
+      S.time.rainIntensity = (S.time.rainIntensity ?? 0) + (targetRain - (S.time.rainIntensity ?? 0)) * wLerp;
+      S.time.raining = (wType === 'rainy');
+
+      // time progression
+      if (!paused){
+        S.time.t01 += dt / DAY_LENGTH;
+        if (S.time.t01 >= 1){
+          // midnight: Fran dozes off
+          toast('🌙 Fran got sleepy… a new day begins.');
+          advanceDay(S, true);
+        }
+      }
+
+      // survival meters
+      if (!paused){
+        // hunger slowly
+        P.hunger -= dt * 0.18;
+        if (P.hunger < 0){
+          P.hunger = 0;
+          P.health -= dt * 0.6;
+        }
+        // cold in frost biome
+        const b = tileBiomeKey(S, Math.floor(P.x/TILE), Math.floor(P.y/TILE));
+        const nearFire = isNearWarmth(S);
+        if (b === 6 && !nearFire){
+          const warm = stats.warmth;
+          const rate = 1.4 / (1 + warm*0.6);
+          P.cold += dt * rate;
+        } else {
+          P.cold -= dt * 10;
+        }
+        if (P.cold > 80){
+          P.stamina -= dt * 2.0;
+        }
+        if (P.cold >= 100){
+          P.health -= dt * 0.4;
+        }
+        if (P.health <= 0){
+          // faint
+          toast('😵 Fran fainted and woke up at home.');
+          P.health = stats.maxHealth;
+          P.x = 0; P.y = 4*TILE;
+          advanceDay(S, true);
+        }
+      }
+
+      tickBuffs(S, dt);
+
+      // stamina regen
+      if (!paused){
+        const hungryPenalty = (P.hunger < 35) ? 0.45 : 1.0;
+        const coldPenalty = (P.cold > 70) ? 0.6 : 1.0;
+        const regen = stats.staminaRegen * hungryPenalty * coldPenalty;
+        P.stamina = clamp(P.stamina + regen * dt, 0, stats.maxStamina);
+      }
+
+      // Movement
+      if (!paused){
+        const run = down('shift');
+        const preX = P.x, preY = P.y;
+        const moveCost = run ? 5.5 : 0;
+        let spd = stats.moveSpeed * (run ? 1.35 : 1.0);
+
+        // if very tired
+        if (P.stamina < 8) spd *= 0.75;
+
+        let mx = 0, my = 0;
+        if (down('w') || down('arrowup')) my -= 1;
+        if (down('s') || down('arrowdown')) my += 1;
+        if (down('a') || down('arrowleft')) mx -= 1;
+        if (down('d') || down('arrowright')) mx += 1;
+
+        if (mx !== 0 || my !== 0){
+          // Manual movement overrides click navigation.
+          S.nav = null;
+
+          const len = Math.hypot(mx,my) || 1;
+          mx /= len; my /= len;
+
+          // set facing
+          if (Math.abs(mx) > Math.abs(my)) P.dir = (mx<0) ? 2 : 3;
+          else P.dir = (my<0) ? 1 : 0;
+
+          // stamina drain when running
+          if (run && P.stamina > 0){
+            P.stamina = Math.max(0, P.stamina - moveCost * dt);
+          }
+
+          moveWithCollisions(S, mx * spd * dt, my * spd * dt);
+        } else if (S.nav && S.nav.kind === 'interact'){
+          const goalTx = S.nav.approach.tx, goalTy = S.nav.approach.ty;
+          const gx = goalTx * TILE;
+          const gy = goalTy * TILE;
+          let dx = gx - P.x;
+          let dy = gy - P.y;
+          const dist = Math.hypot(dx,dy);
+
+          if (dist < 0.75){
+            P.x = gx; P.y = gy;
+
+            const pt2 = playerTile(S);
+            const tgt = S.nav.target;
+            if (Math.abs(pt2.tx - tgt.tx) + Math.abs(pt2.ty - tgt.ty) === 1){
+              faceToward(P, pt2.tx, pt2.ty, tgt.tx, tgt.ty);
+              interact(S, {tx:tgt.tx, ty:tgt.ty});
+            }
+            S.nav = null;
+          } else {
+            dx /= dist; dy /= dist;
+
+            // set facing
+            if (Math.abs(dx) > Math.abs(dy)) P.dir = (dx<0) ? 2 : 3;
+            else P.dir = (dy<0) ? 1 : 0;
+
+            // optional run-to-click (hold shift)
+            if (run && P.stamina > 0){
+              P.stamina = Math.max(0, P.stamina - moveCost * dt);
+            }
+
+            moveWithCollisions(S, dx * spd * dt, dy * spd * dt);
+
+            const newDist = Math.hypot(gx - P.x, gy - P.y);
+            if (newDist > (S.nav.lastDist - 0.2)) S.nav.stuck += dt;
+            else S.nav.stuck = 0;
+            S.nav.lastDist = newDist;
+
+            if (S.nav.stuck > 0.9){
+              toast("🚫 Can't reach that spot.");
+              S.nav = null;
+            }
+          }
+        }
+        // velocity for camera smoothing
+        const dd = Math.max(0.0001, dt);
+        P.vx = (P.x - preX) / dd;
+        P.vy = (P.y - preY) / dd;
+      }
+
+      // interactions
+      if (pressE && !paused && !(S.transition && S.transition.active)){
+        // Shift+E places campfire if available (quick shortcut)
+        if (down('shift') && invCount(S,'campfire')>0){
+          const t = targetTile(S);
+          if (!isSolid(S,t.tx,t.ty)){
+            invAdd(S,'campfire',-1);
+            addPlaced(S,t.tx,t.ty,'campfire');
+            awardXP(S,'crafting', 6);
+            toast('🔥 Placed campfire.');
+          } else {
+            toast('🧺 No space to place.');
+          }
+        } else {
+          interact(S);
+        }
+      }
+      pressE = false;
+
+      // sleep (Phase 2: sleep in bed, indoors)
+      if (pressSpace && !paused){
+        if (S.scene === 'interior'){
+          const I = S.interior;
+          const {tx,ty} = playerTile(S);
+          if (Math.abs(tx-I.bed.tx)+Math.abs(ty-I.bed.ty) <= 2){
+            if (!S.transition?.active) transitionSleep(S);
+          } else {
+            toast('🛏️ Get into bed to sleep.');
+          }
+        } else {
+          toast('🏡 Sleep in your bed inside the cottage.');
+        }
+      }
+      pressSpace = false;
+
+      // discovery tick
+      if (!paused){
+        markDiscovery(S);
+      }
+
+      // autosave
+      autosaveT += dt;
+      if (autosaveT > 45){
+        autosaveT = 0;
+        saveGame(S);
+      }
+
+      // camera + cozy FX (always keeps the view snug and lively)
+      updateCamera(S, dt);
+      updateFX(S, dt);
+
+      // Clamp vitals (gameplay logic; keep independent from HUD cadence)
+      P.health  = clamp(P.health,  0, stats.maxHealth);
+      P.stamina = clamp(P.stamina, 0, stats.maxStamina);
+      P.hunger  = clamp(P.hunger,  0, 100);
+      P.cold    = clamp(P.cold,    0, 100);
+
+      // Hotbar highlight is cheap: keep it responsive
+      renderHotbar(S);
+
+      // HUD updates are DOM-heavy; update at a gentle cadence to avoid layout thrash
+      hudAccum += dt;
+      if (hudAccum >= 0.15){
+        updateHUD(S);
+        hudAccum = 0;
+      }
+    }
+
+    function moveWithCollisions(S, dx,dy){
+      const P = S.player;
+
+      // axis move
+      let nx = P.x + dx;
+      let ny = P.y;
+
+      if (!collides(S, nx, ny)){
+        P.x = nx;
+      } else {
+        // slide attempt
+        // no-op for x
+      }
+
+      nx = P.x;
+      ny = P.y + dy;
+      if (!collides(S, nx, ny)){
+        P.y = ny;
+      }
+
+      // Gentle exploration XP for travel (distance-based, not per-frame)
+      const dist = Math.hypot(dx,dy);
+      if (dist > 0.001){
+        travelAcc += dist;
+        const step = 160; // pixels (~10 tiles)
+        while (travelAcc >= step){
+          travelAcc -= step;
+          awardXP(S,'exploration', 1);
+        }
+      }
+    }
+
+    function collides(S, px,py){
+      // player AABB about 12x12 inside tile
+      const x0 = px + 2;
+      const y0 = py + 4;
+      const x1 = px + 14;
+      const y1 = py + 15;
+
+      const tx0 = Math.floor(x0 / TILE);
+      const ty0 = Math.floor(y0 / TILE);
+      const tx1 = Math.floor(x1 / TILE);
+      const ty1 = Math.floor(y1 / TILE);
+
+      for(let ty=ty0; ty<=ty1; ty++){
+        for(let tx=tx0; tx<=tx1; tx++){
+          if (isSolid(S, tx,ty)) return true;
+        }
+      }
+      return false;
+    }
+
+    function isNearWarmth(S){
+      // near cottage or campfire
+      const P = S.player;
+      const {tx,ty} = playerTile(S);
+
+      // cottage warmth zone
+      if (Math.hypot(tx,ty) < 12) return true;
+
+      // campfire within 3 tiles
+      for(let dy=-3; dy<=3; dy++){
+        for(let dx=-3; dx<=3; dx++){
+          const p = placedAt(S, tx+dx, ty+dy);
+          if (p && p.type==='campfire') return true;
+        }
+      }
+      return false;
+    }
+
+    
+    // -----------------------------
+    // Cozy camera + atmospheric FX
+    // -----------------------------
+    function getNightAlpha(S){
+      const t = S.time.t01;
+      const dusk = (t<0.15) ? (0.55 - t/0.15*0.55) :
+                   (t>0.85) ? ((t-0.85)/0.15*0.65) : 0;
+      return clamp(dusk, 0, 0.70);
+    }
+
+    function updateCamera(S, dt){
+      // Smooth zoom toward target
+      const zLerp = 1 - Math.pow(0.001, dt * 6);
+      zoom = zoom + (zoomTarget - zoom) * zLerp;
+
+      const P = S.player;
+      const viewW = CANVAS_W / zoom;
+      const viewH = CANVAS_H / zoom;
+
+      // Look-ahead based on actual movement (prevents sudden jumps when tapping directions)
+      const vx = P.vx || 0;
+      const vy = P.vy || 0;
+      const vlen = Math.hypot(vx, vy);
+      const moving = vlen > 5;
+      const targetLX = moving ? (vx / vlen) : 0;
+      const targetLY = moving ? (vy / vlen) : 0;
+
+      const lookSmooth = 1 - Math.pow(0.001, dt * 6);
+      camLook.x = camLook.x + (targetLX - camLook.x) * lookSmooth;
+      camLook.y = camLook.y + (targetLY - camLook.y) * lookSmooth;
+
+      const lookAhead = TILE * 1.25; // cozy but stable
+      const cozyOffsetY = TILE * 1.8; // Fran sits a touch lower on screen
+
+      const desiredX = (P.x + TILE/2) - viewW/2 + camLook.x * lookAhead;
+      const desiredY = (P.y + TILE/2) - viewH/2 + camLook.y * lookAhead - cozyOffsetY;
+
+      // softer camera easing (less snap)
+      const cLerp = 1 - Math.pow(0.001, dt * 4);
+      cam.x = cam.x + (desiredX - cam.x) * cLerp;
+      cam.y = cam.y + (desiredY - cam.y) * cLerp;
+
+      // Clamp camera inside cottage interior bounds
+      if (S.scene === 'interior' && S.interior){
+        const I = S.interior;
+        const maxX = I.w * TILE - viewW;
+        const maxY = I.h * TILE - viewH;
+        cam.x = clamp(cam.x, -TILE, maxX + TILE);
+        cam.y = clamp(cam.y, -TILE*2, maxY + TILE);
+      }
+    }
+
+    function worldToScreen(wx, wy, camX, camY){
+      return { x: (wx - camX) * zoom, y: (wy - camY) * zoom };
+    }
+
+    function updateFX(S, dt){
+      const nightA = getNightAlpha(S);
+
+      // Leaves (always, gentle)
+      fxTimers.leaf -= dt;
+      if (fxTimers.leaf <= 0){
+        fxTimers.leaf = 0.25 + Math.random()*0.35;
+        if (fx.leaves.length < 22){
+          fx.leaves.push({
+            x: Math.random()*CANVAS_W,
+            y: -10,
+            vx: (-10 + Math.random()*20),
+            vy: (8 + Math.random()*22),
+            wob: Math.random()*6.28,
+            s: 1 + Math.random()*2,
+            a: 0.15 + Math.random()*0.12
+          });
+        }
+      }
+      for(let i=fx.leaves.length-1;i>=0;i--){
+        const p = fx.leaves[i];
+        p.wob += dt*1.4;
+        p.x += (p.vx + Math.sin(p.wob)*8) * dt;
+        p.y += p.vy * dt;
+        if (p.y > CANVAS_H + 20){ fx.leaves.splice(i,1); }
+      }
+
+      // Rain streaks
+      const rainI = (S.time.rainIntensity ?? 0);
+      if (rainI > 0.08){
+        fxTimers.rain -= dt;
+        if (fxTimers.rain <= 0){
+          fxTimers.rain = 0.03 - Math.min(0.02, rainI*0.02);
+          const drops = 3 + Math.floor(rainI*7);
+          for(let k=0;k<drops;k++){
+            fx.rain.push({
+              x: Math.random()*CANVAS_W,
+              y: -10,
+              vx: -40 - Math.random()*25,
+              vy: 280 + Math.random()*120,
+              a: 0.18 + Math.random()*0.10
+            });
+          }
+        }
+      }
+      for(let i=fx.rain.length-1;i>=0;i--){
+        const p = fx.rain[i];
+        p.x += p.vx*dt;
+        p.y += p.vy*dt;
+        if (p.y > CANVAS_H + 20 || p.x < -40){ fx.rain.splice(i,1); }
+      }
+      if (rainI <= 0.01 && fx.rain.length > 80){
+        fx.rain.splice(0, fx.rain.length-80);
+      }
+
+      // Snow (winter season OR frost biome nearby)
+      const P = S.player;
+      const b = tileBiomeKey(S, Math.floor(P.x/TILE), Math.floor(P.y/TILE));
+      const snowy = (S.time.season === 3) || (b === 6);
+      if (snowy){
+        fxTimers.snow -= dt;
+        if (fxTimers.snow <= 0){
+          fxTimers.snow = 0.08;
+          if (fx.snow.length < 90){
+            fx.snow.push({
+              x: Math.random()*CANVAS_W,
+              y: -10,
+              vx: -10 + Math.random()*20,
+              vy: 18 + Math.random()*45,
+              s: 1 + Math.random()*2,
+              a: 0.18 + Math.random()*0.18
+            });
+          }
+        }
+      }
+      for(let i=fx.snow.length-1;i>=0;i--){
+        const p = fx.snow[i];
+        p.x += p.vx*dt;
+        p.y += p.vy*dt;
+        if (p.y > CANVAS_H + 20){ fx.snow.splice(i,1); }
+      }
+      if (!snowy && fx.snow.length > 30){
+        fx.snow.splice(0, fx.snow.length-30);
+      }
+
+      // Fireflies at night (subtle)
+      if (nightA > 0.20){
+        fxTimers.fly -= dt;
+        if (fxTimers.fly <= 0){
+          fxTimers.fly = 0.35 + Math.random()*0.45;
+          if (fx.fireflies.length < 18){
+            fx.fireflies.push({
+              x: Math.random()*CANVAS_W,
+              y: Math.random()*CANVAS_H,
+              vx: (-12 + Math.random()*24),
+              vy: (-10 + Math.random()*20),
+              t: 1.2 + Math.random()*2.0
+            });
+          }
+        }
+      }
+      for(let i=fx.fireflies.length-1;i>=0;i--){
+        const p = fx.fireflies[i];
+        p.t -= dt;
+        p.x += p.vx*dt;
+        p.y += p.vy*dt;
+        // wrap softly
+        if (p.x < -10) p.x = CANVAS_W+10;
+        if (p.x > CANVAS_W+10) p.x = -10;
+        if (p.y < -10) p.y = CANVAS_H+10;
+        if (p.y > CANVAS_H+10) p.y = -10;
+        if (p.t <= 0) fx.fireflies.splice(i,1);
+      }
+
+      // Chimney smoke (world-space, only when cottage is on-screen)
+      fxTimers.smoke -= dt;
+      if (fxTimers.smoke <= 0){
+        fxTimers.smoke = 0.22 + Math.random()*0.22;
+        const camX = Math.round(cam.x);
+        const camY = Math.round(cam.y);
+        // chimney world position based on cottage sprite placement
+        const chimneyWX = -16 + 37;
+        const chimneyWY = -56 + 6;
+
+        const sc = worldToScreen(chimneyWX, chimneyWY, camX, camY);
+        if (sc.x > -80 && sc.x < CANVAS_W+80 && sc.y > -120 && sc.y < CANVAS_H+80){
+          fx.smoke.push({
+            wx: chimneyWX + (-2 + Math.random()*4),
+            wy: chimneyWY + (-2 + Math.random()*3),
+            vx: -3 + Math.random()*6,
+            vy: -18 - Math.random()*20,
+            a: 0.10 + Math.random()*0.08,
+            t: 2.0 + Math.random()*1.2
+          });
+        }
+      }
+      for(let i=fx.smoke.length-1;i>=0;i--){
+        const p = fx.smoke[i];
+        p.t -= dt;
+        p.wx += p.vx*dt;
+        p.wy += p.vy*dt;
+        if (p.t <= 0) fx.smoke.splice(i,1);
+      }
+    }
+
+    function drawFrameFX(S, nightA){
+      // Warm edge light (sunrise/sunset), plus vignette
+      const t = S.time.t01;
+
+      // sunrise warmth
+      const sunrise = clamp(1 - Math.abs(t-0.12)/0.10, 0, 1);
+      const sunset  = clamp(1 - Math.abs(t-0.88)/0.10, 0, 1);
+      const warmA = (sunrise*0.18 + sunset*0.20);
+
+      if (warmA > 0.01){
+        const g = ctx.createRadialGradient(CANVAS_W*0.5, CANVAS_H*0.15, 10, CANVAS_W*0.5, CANVAS_H*0.2, CANVAS_W*0.75);
+        g.addColorStop(0, `rgba(255, 214, 170, ${0.22*warmA})`);
+        g.addColorStop(1, `rgba(255, 214, 170, 0)`);
+        ctx.fillStyle = g;
+        ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+      }
+
+      // vignette
+      ctx.globalAlpha = 0.35 + nightA*0.35;
+      const vg = ctx.createRadialGradient(CANVAS_W/2, CANVAS_H/2, CANVAS_H*0.15, CANVAS_W/2, CANVAS_H/2, CANVAS_H*0.75);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(30, 25, 18, 1)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+      ctx.globalAlpha = 1;
+    }
+
+    function drawWorldLights(S, camX, camY, nightA){
+      if (nightA <= 0.05) return;
+
+      // Light rendering in screen space (after world render)
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+
+      function glow(wx, wy, r, col, a){
+        const p = worldToScreen(wx, wy, camX, camY);
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+        g.addColorStop(0, `rgba(${col}, ${a})`);
+        g.addColorStop(1, `rgba(${col}, 0)`);
+        ctx.fillStyle = g;
+        ctx.fillRect(p.x-r, p.y-r, r*2, r*2);
+      }
+
+      // Cottage windows glow (world positions based on sprite layout)
+      const win1 = { wx: -16 + 17, wy: -56 + 33 };
+      const win2 = { wx: -16 + 35, wy: -56 + 33 };
+      const door = { wx: 0*TILE + TILE/2, wy: 1*TILE + TILE/2 };
+
+      const a = 0.35 + nightA*0.55;
+      glow(win1.wx, win1.wy, 120, '255, 200, 140', a);
+      glow(win2.wx, win2.wy, 120, '255, 200, 140', a);
+      glow(door.wx, door.wy, 160, '255, 190, 120', a*0.85);
+
+      // Campfires
+      const {tx,ty} = playerTile(S);
+      for(let dy=-18; dy<=18; dy++){
+        for(let dx=-18; dx<=18; dx++){
+          const px = tx+dx, py=ty+dy;
+          const p = placedAt(S, px, py);
+          if (p && p.type==='campfire'){
+            glow(px*TILE + TILE/2, py*TILE + TILE/2, 150, '255, 185, 110', a*0.75);
+          }
+        }
+      }
+
+      // A small personal lantern around Fran
+      const P = S.player;
+      glow(P.x + TILE/2, P.y + TILE/2, 90, '255, 215, 160', 0.18 + nightA*0.22);
+
+      ctx.restore();
+    }
+
+    function drawWeatherFX(S, nightA){
+      // Leaves (screen-space)
+      ctx.save();
+      ctx.globalAlpha = 1;
+
+      // fireflies
+      if (nightA > 0.15 && fx.fireflies.length){
+        ctx.globalCompositeOperation = 'lighter';
+        for(const p of fx.fireflies){
+          ctx.globalAlpha = 0.20 + nightA*0.45;
+          ctx.fillStyle = 'rgba(220, 255, 180, 1)';
+          ctx.fillRect((p.x|0), (p.y|0), 2, 2);
+        }
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+      }
+
+      // smoke (world-space)
+      if (fx.smoke.length){
+        for(const p of fx.smoke){
+          const camX = Math.round(cam.x);
+          const camY = Math.round(cam.y);
+          const s = worldToScreen(p.wx, p.wy, camX, camY);
+          ctx.globalAlpha = p.a;
+          ctx.fillStyle = 'rgba(255,255,255,1)';
+          ctx.fillRect((s.x|0), (s.y|0), 3, 2);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      // leaves
+      for(const p of fx.leaves){
+        ctx.globalAlpha = p.a;
+        ctx.fillStyle = 'rgba(90, 120, 80, 1)';
+        ctx.fillRect((p.x|0), (p.y|0), p.s|0, p.s|0);
+      }
+      ctx.globalAlpha = 1;
+
+
+      // clouds (soft layer, screen-space)
+      const cloud = (S.time.cloudiness ?? 0);
+      if (cloud > 0.05){
+        const tt = performance.now()/1000;
+        ctx.globalAlpha = 0.10 + cloud*0.18;
+        ctx.fillStyle = 'rgba(230, 235, 240, 1)';
+        for(let i=0;i<4;i++){
+          const y = 18 + i*26 + Math.sin(tt*0.22 + i)*8;
+          const x = ((tt*18) + i*240) % (CANVAS_W+420) - 420;
+          ctx.fillRect(x, y, 340, 34);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      // rain
+      if (fx.rain.length){
+        ctx.globalAlpha = 0.35;
+        ctx.strokeStyle = 'rgba(220, 240, 255, .25)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for(const p of fx.rain){
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + 10, p.y + 18);
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+
+      // snow
+      if (fx.snow.length){
+        for(const p of fx.snow){
+          ctx.globalAlpha = p.a;
+          ctx.fillStyle = 'rgba(255,255,255,1)';
+          ctx.fillRect((p.x|0), (p.y|0), p.s|0, p.s|0);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      ctx.restore();
+    }
+
+
+    // -----------------------------
+    // Render
+    // -----------------------------
+    function render(){
+      const S = state;
+      const P = S.player;
+
+      // camera
+      const camX = Math.round(cam.x);
+      const camY = Math.round(cam.y);
+
+      // clear
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+
+      
+  // world/interior render in a scaled "snug" view
+  ctx.setTransform(zoom, 0, 0, zoom, 0, 0);
+  if (S.scene === 'interior'){
+    drawInterior(S, camX, camY);
+    drawInteractHighlight(S, camX, camY);
+    drawPlayer(S, camX, camY);
+  } else {
+    drawWorld(S, camX, camY);
+    drawInteractHighlight(S, camX, camY);
+    drawPlayer(S, camX, camY);
+  }
+  ctx.setTransform(1,0,0,1,0,0);
+
+  // cinematic cozy overlays
+  let nightA = 0;
+  if (S.scene !== 'interior'){
+    nightA = drawLighting(S);
+    drawWorldLights(S, camX, camY, nightA);
+    drawWeatherFX(S, nightA);
+  } else {
+    // subtle indoor vignette
+    drawFrameFX(S, 0.2);
+  }
+  if (S.scene !== 'interior'){
+    drawFrameFX(S, nightA);
+  }
+
+  // Phase 2: fade transitions overlay
+  if (S.transition && S.transition.active){
+    const half = S.transition.dur/2;
+    const t = S.transition.t;
+    let a = t < half ? (t/half) : (1 - (t-half)/half);
+    a = clamp(a, 0, 1);
+    ctx.fillStyle = `rgba(0,0,0,${a})`;
+    ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+  }
+}
+
+    // -----------------------------
+    // Main loop
+    // -----------------------------
+    function loop(t){
+      const dt = Math.min(0.05, (t - last) / 1000);
+      last = t;
+      update(dt);
+      render();
+      tickToasts(dt);
+      requestAnimationFrame(loop);
+    }
+
+    // Initial UI build
+    renderHotbar(state);
+    updateHUD(state);
+    // Initialize camera position instantly
+    cam.x = state.player.x - (CANVAS_W/zoom)/2 + TILE/2;
+    cam.y = state.player.y - (CANVAS_H/zoom)/2 + TILE/2 - TILE*2;
+
+    // seed hint
+    toast('🌿 Fran & the Fernwood Frontier — Explore, Gather, Grow.');
+
+    requestAnimationFrame(loop);
+
+  })();
+  </script>
+</body>
+</html>

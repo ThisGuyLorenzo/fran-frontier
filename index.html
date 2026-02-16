@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fran & the Fernwood Frontier — Cozy Browser Build</title>
+    <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="wrap">
+    <div id="gameShell">
+      <canvas id="game" width="960" height="544"></canvas>
+
+      <div id="hud">
+        <div id="topbar">
+          <div id="status" class="panel woodEdge">
+            <div class="statRow" id="statusRow">
+              <!-- filled by JS -->
+            </div>
+          </div>
+
+          <div id="dayinfo" class="panel woodEdge">
+            <div>
+              <div style="font-weight:800;" id="dayLine">Day 1 • Spring • 07:00</div>
+              <div style="font-size:13px; opacity:.86;" id="weatherLine">Gentle morning • Clear skies</div>
+            </div>
+          </div>
+
+          <div id="biomeinfo" class="panel woodEdge">
+            <div>
+              <div style="font-weight:800;" id="biomeLine">Whispering Forest</div>
+              <div style="font-size:13px; opacity:.86;" id="hintLine">Explore • Gather • Grow</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="xpWrap">
+          <div id="xpbar" class="panel woodEdge">
+            <div class="bar"><i id="xpFill"></i></div>
+            <div id="xpText">Lv 1 • 0 / 100</div>
+          </div>
+        </div>
+
+        <div id="helpStrip" class="panel woodEdge">
+          <div style="font-weight:800; margin-bottom:6px;">Controls</div>
+          <div>
+            Move <span class="kbd">WASD</span>/<span class="kbd">Arrows</span> · Run <span class="kbd">Shift</span> · Interact <span class="kbd">E</span><br/>
+            Tools <span class="kbd">1</span>-<span class="kbd">5</span> · Inventory <span class="kbd">Tab</span> · Craft <span class="kbd">C</span> · Skills <span class="kbd">K</span><br/>
+            Journal <span class="kbd">J</span> · Map <span class="kbd">M</span> · Zoom <span class="kbd">[</span>/<span class="kbd">]</span> · Sleep in bed <span class="kbd">Space</span>
+          </div>
+        </div>
+
+        <div id="hotbar" class="panel woodEdge">
+          <!-- slots filled by JS -->
+        </div>
+
+        <div id="hint" class="panel woodEdge">
+          <div id="hintText"><b>Welcome, Fran!</b> Walk around and press <span class="kbd">E</span> to forage, chop, mine, plant, and interact. Try planting seeds near your cottage.</div>
+        </div>
+
+        <div id="toasts"></div>
+
+        <!-- Modals -->
+        <div id="modalInventory" class="modal">
+          <div class="modalCard">
+            <div class="modalHeader">
+              <div>
+                <h2>Satchel Inventory</h2>
+                <p>Click seeds to set your active seed. Click food to eat. Your cottage-core life is built from little daily choices.</p>
+              </div>
+              <button class="closeBtn" data-close="modalInventory">Close</button>
+            </div>
+
+            <div class="grid2">
+              <div class="panel" style="padding:12px;">
+                <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                  <div style="font-weight:800;">Items</div>
+                  <div class="pill" id="moneyPill">🪙 0 coins</div>
+                </div>
+                <div id="invList" class="list"></div>
+              </div>
+
+              <div class="panel" style="padding:12px;">
+                <div style="font-weight:800; margin-bottom:10px;">Quick Info</div>
+                <div id="invInfo" style="font-size:13px; opacity:.9; line-height:1.35;">
+                  Select an item to see details.
+                </div>
+                <hr style="border:none; border-top:1px solid rgba(107,79,42,.25); margin:12px 0;">
+                <div style="font-weight:800; margin-bottom:8px;">Active Seed</div>
+                <div id="activeSeedLine" class="pill">🌱 None</div>
+                <div style="margin-top:10px; font-size:12.5px; opacity:.85;">
+                  Tip: Equip the <b>Hoe</b> (<span class="kbd">3</span>) and press <span class="kbd">E</span> on grass to till. Then press <span class="kbd">E</span> again to plant your active seed. Water with <span class="kbd">2</span>.
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+              <button class="btn" id="btnSave">Save</button>
+              <button class="btn" id="btnExport">Export Save</button>
+              <label class="btn" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+                Import Save <input id="fileImport" type="file" accept=".json" style="display:none;">
+              </label>
+              <button class="btn" id="btnNew">New World</button>
+              <span style="font-size:12.5px; opacity:.85; align-self:center;">(Saving uses localStorage; export/import always works.)</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="modalCraft" class="modal">
+          <div class="modalCard">
+            <div class="modalHeader">
+              <div>
+                <h2>Recipe Journal</h2>
+                <p>Handmade crafts, warm meals, gentle upgrades. Crafting and cooking give skill XP and cozy buffs.</p>
+              </div>
+              <button class="closeBtn" data-close="modalCraft">Close</button>
+            </div>
+            <div id="craftList" class="list"></div>
+          </div>
+        </div>
+
+        <div id="modalSkills" class="modal">
+          <div class="modalCard">
+            <div class="modalHeader">
+              <div>
+                <h2>Fran’s Skills & Stats</h2>
+                <p>Level up through calm routines. Spend stat points to shape how Fran explores, gathers, and thrives.</p>
+              </div>
+              <button class="closeBtn" data-close="modalSkills">Close</button>
+            </div>
+
+            <div class="grid2">
+              <div class="panel" style="padding:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                  <div>
+                    <div style="font-weight:900; font-size:16px;" id="lvlLine">Overall Level 1</div>
+                    <div style="font-size:13px; opacity:.85;" id="pointsLine">Stat Points: 0</div>
+                  </div>
+                  <div class="pill" id="perkPill">🌿 Perks: none yet</div>
+                </div>
+                <hr style="border:none; border-top:1px solid rgba(107,79,42,.25); margin:12px 0;">
+                <div id="statList" class="list"></div>
+              </div>
+
+              <div class="panel" style="padding:12px;">
+                <div style="font-weight:900; margin-bottom:10px;">Skill Lines</div>
+                <div id="skillList" class="list"></div>
+                <hr style="border:none; border-top:1px solid rgba(107,79,42,.25); margin:12px 0;">
+                <div style="font-size:12.5px; opacity:.88; line-height:1.35;">
+                  <b>Perk milestones:</b> At skill level 5 you unlock a cozy perk (Green Thumb, Berry Keen, Soft Strike, Trailblazer, Hearty Meals).<br/>
+                  These perks are gentle boosts that harmonize the whole experience: home → explore → gather → grow.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="modalJournal" class="modal">
+          <div class="modalCard">
+            <div class="modalHeader">
+              <div>
+                <h2>Field Journal</h2>
+                <p>Fran keeps little notes—biomes visited, curiosities found, and a soft record of your frontier life.</p>
+              </div>
+              <button class="closeBtn" data-close="modalJournal">Close</button>
+            </div>
+            <div class="grid2">
+              <div class="panel" style="padding:12px;">
+                <div style="font-weight:900; margin-bottom:10px;">Discovered Biomes</div>
+                <div id="bioList" class="list"></div>
+              </div>
+              <div class="panel" style="padding:12px;">
+                <div style="font-weight:900; margin-bottom:10px;">Collected Resources</div>
+                <div id="resList" class="list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="modalMap" class="modal">
+          <div class="modalCard">
+            <div class="modalHeader">
+              <div>
+                <h2>Parchment Map</h2>
+                <p>Fog-of-war clears as Fran explores. Discovered chunks color themselves by biome. Tiny archways become fast-travel anchors.</p>
+              </div>
+              <button class="closeBtn" data-close="modalMap">Close</button>
+            </div>
+            <canvas id="mapCanvas" width="800" height="500"></canvas>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; align-items:center;">
+              <button class="btn" id="btnFastTravel">Fast Travel (to nearest archway)</button>
+              <span style="font-size:12.5px; opacity:.85;">Costs a little stamina and advances time.</span>
+            </div>
+          </div>
+        </div>
+
+
+        <div id="modalPause" class="modal">
+          <div class="modalCard">
+            <div class="modalHeader">
+              <div>
+                <h2>Pause Menu</h2>
+                <p>Cozy controls, comfort options, and a quiet moment for tea. Press <span class="kbd">P</span> or <span class="kbd">Esc</span> to resume.</p>
+              </div>
+              <button class="closeBtn" data-close="modalPause">Resume</button>
+            </div>
+
+            <div class="grid2">
+              <div class="panel" style="padding:12px;">
+                <div style="font-weight:900; margin-bottom:8px;">Controls</div>
+                <div style="font-size:13px; line-height:1.6;">
+                  <div><span class="kbd">WASD</span> / <span class="kbd">Arrow Keys</span> — Move</div>
+                  <div><span class="kbd">Shift</span> — Run</div>
+                  <div><span class="kbd">E</span> — Interact / Use tool</div>
+                  <div><span class="kbd">Click</span> — Walk & auto-interact</div>
+                  <div><span class="kbd">1</span>–<span class="kbd">5</span> — Select tool</div>
+                  <div><span class="kbd">Tab</span> — Inventory</div>
+                  <div><span class="kbd">C</span> — Crafting</div>
+                  <div><span class="kbd">K</span> — Skills & Stats</div>
+                  <div><span class="kbd">J</span> — Field Journal</div>
+                  <div><span class="kbd">M</span> — Map</div>
+                  <div><span class="kbd">Space</span> — Sleep (in bed indoors)</div>
+                  <div><span class="kbd">[</span> / <span class="kbd">]</span> — Zoom</div>
+                </div>
+              </div>
+
+              <div class="panel" style="padding:12px;">
+                <div style="font-weight:900; margin-bottom:8px;">Options</div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                  <button class="btn" id="btnFullscreen">Toggle Fullscreen</button>
+                  <button class="btn" id="btnToggleHUD">Toggle Minimal HUD</button>
+                  <button class="btn" id="btnResetGame">Reset / New Game</button>
+                  <button class="btn" id="btnRestoreBackup">Load Previous Save</button>
+                </div>
+                <hr style="border:none; border-top:1px solid rgba(107,79,42,.25); margin:12px 0;">
+                <div style="font-size:13px; opacity:.9; line-height:1.5;">
+                  <div><b>Weather:</b> <span id="pauseWeatherLine">—</span></div>
+                  <div><b>Tip:</b> Rain gently auto-waters crops. Cloudy days feel soft and calm.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /hud -->
+    </div><!-- /gameShell -->
+  </div><!-- /wrap -->
+
+    <script src="./src/01_constants_helpers.js"></script>
+  <script src="./src/02_ui_references.js"></script>
+  <script src="./src/03_deterministic_rng_noise.js"></script>
+  <script src="./src/04_biomes_ground_types.js"></script>
+  <script src="./src/05_sprites_procedural_pixel_textures.js"></script>
+  <script src="./src/06_items_recipes_crops.js"></script>
+  <script src="./src/07_world_generation_chunks.js"></script>
+  <script src="./src/08_phase_2_cottage_interior_separate_scene.js"></script>
+  <script src="./src/09_game_state_new_load_save.js"></script>
+  <script src="./src/10_chunk_access_deltas.js"></script>
+  <script src="./src/11_inventory_helpers.js"></script>
+  <script src="./src/12_xp_leveling.js"></script>
+  <script src="./src/13_buffs_derived_stats.js"></script>
+  <script src="./src/14_interactions.js"></script>
+  <script src="./src/15_time_weather_day_advance.js"></script>
+  <script src="./src/16_discovery_fog_of_war.js"></script>
+  <script src="./src/17_rendering_helpers.js"></script>
+  <script src="./src/18_phase_2_interior_rendering.js"></script>
+  <script src="./src/19_ui_rendering.js"></script>
+  <script src="./src/20_modals_content.js"></script>
+  <script src="./src/21_toasts.js"></script>
+  <script src="./src/27_audio_rain.js"></script>
+  <script src="./src/22_input.js"></script>
+  <script src="./src/23_game_loop_update.js"></script>
+  <script src="./src/24_cozy_camera_atmospheric_fx.js"></script>
+  <script src="./src/25_render.js"></script>
+  <script src="./src/26_main_loop.js"></script>
+</body>
+</html>
